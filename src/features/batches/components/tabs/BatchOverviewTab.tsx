@@ -19,9 +19,9 @@ export const BatchOverviewTab: React.FC<BatchOverviewTabProps> = ({ formData, ha
         }
     }, [isProductsError, productsError]);
 
-    // Lock core fields if the batch is Active or Completed
-    const isLocked = formData.status === 'Active' || formData.status === 'Completed';
-    const lockedHint = isLocked ? "Locked because batch is active or completed." : undefined;
+    // Lock core fields if the batch is Executed or has fetched contacts
+    const isLocked = formData.status === 'Executed' || formData.status === 'contacts fetched';
+    const lockedHint = isLocked ? "Locked because batch is executed or contacts are fetched." : undefined;
 
     return (
         <div className="flex flex-col gap-6">

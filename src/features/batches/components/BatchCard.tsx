@@ -18,10 +18,10 @@ export const BatchCard: React.FC<BatchCardProps> = ({ id, name, status, createdA
     const lowerStatus = status.toLowerCase();
     let badgeVariant: "success" | "info" | "warning" = "warning";
 
-    if (lowerStatus === 'active') {
-        badgeVariant = 'success';
-    } else if (lowerStatus === 'completed') {
-        badgeVariant = 'info';
+    if (lowerStatus === 'executed') {
+        badgeVariant = 'info'; // Blue
+    } else if (lowerStatus === 'contacts fetched') {
+        badgeVariant = 'success'; // Green
     }
 
     return (

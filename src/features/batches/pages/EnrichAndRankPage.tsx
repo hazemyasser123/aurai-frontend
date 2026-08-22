@@ -120,7 +120,9 @@ const EnrichAndRankPage: React.FC = () => {
             ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredAccounts.map((account) => {
-                        const isDisabled = account.status === 'ERROR' || account.status === 'RESEARCHING';
+                        // FIX: Check for 'error' and 'processing' (case-insensitive)
+                        const lowerStatus = account.status?.toLowerCase() || '';
+                        const isDisabled = lowerStatus === 'error' || lowerStatus === 'processing';
 
                         return (
                             <div key={account.id} className="bg-bg-sidebar border border-border rounded-xl p-6 flex flex-col gap-6 relative hover:shadow-card transition-shadow min-h-[177px]">

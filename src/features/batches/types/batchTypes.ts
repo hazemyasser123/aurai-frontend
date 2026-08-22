@@ -1,5 +1,5 @@
 // Enums
-export type BatchStatus = "Draft" | "Active" | "Completed";
+export type BatchStatus = "Draft" | "Executed" | "contacts fetched";
 
 export interface ProductAnalysis {
   executive_summary?: string;

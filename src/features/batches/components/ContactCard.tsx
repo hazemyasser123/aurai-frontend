@@ -6,6 +6,16 @@ import type { Contact } from '@/features/batches/types/batchTypes';
 import toast from 'react-hot-toast';
 import { useToggleContactRecommend } from '@/features/batches/hooks/useToggleContactRecommend';
 
+// Utility to decode HTML entities
+const decodeHtml = (html: string) => {
+    if (typeof document !== 'undefined') {
+        const txt = document.createElement("textarea");
+        txt.innerHTML = html;
+        return txt.value;
+    }
+    return html;
+};
+
 interface ContactCardProps {
     contact: Contact;
     accountId?: string;
@@ -48,8 +58,13 @@ export const ContactCard: React.FC<ContactCardProps> = ({ contact, accountId, ba
                     </div>
                 )}
                 <div className="flex flex-col gap-0.5 min-w-0">
-                    <p className="font-sans font-medium text-sm text-fg truncate">{contact.first_name} {contact.last_name}</p>
-                    <p className="font-sans text-xs text-fg-body truncate">{contact.title}</p>
+                    <p className="font-sans font-medium text-sm text-fg truncate">
+                        {contact.first_name} {contact.last_name}
+                    </p>
+                    {/* Decode HTML entities in title before rendering */}
+                    <p className="font-sans text-xs text-fg-body truncate">
+                        {decodeHtml(contact.title || '')}
+                    </p>
                 </div>
             </div>
 
@@ -74,7 +89,6 @@ export const ContactCard: React.FC<ContactCardProps> = ({ contact, accountId, ba
                     </a>
                 )}
 
-                {/* Updated View Details Button */}
                 <Button
                     variant="outline"
                     className="py-1 px-2 h-8 text-xs"
