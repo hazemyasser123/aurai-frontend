@@ -1,0 +1,158 @@
+@import "tailwindcss";
+
+/* Enable class-based dark mode for Tailwind v4 */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* ─────────────────────────────────────────────
+     COLORS — Brand / Primary
+  ───────────────────────────────────────────── */
+  --color-primary: #7f22fe;
+  --color-primary-dark: #7008e7;
+  --color-primary-light: #9f2fff;
+  --color-primary-accent: #8e51ff;
+
+  --color-secondary-teal: #0bb1d3;
+  --color-secondary-cyan: #01b2db;
+  --color-secondary-magenta: #b710c6;
+
+  /* ─────────────────────────────────────────────
+     COLORS — Surfaces / Backgrounds (Light)
+  ───────────────────────────────────────────── */
+  --color-bg-page: #f3f4f6;
+  --color-bg-sidebar: #f9fafb;
+  --color-bg-card: #ffffff;
+  --color-bg-input: #f3f4f6;
+  --color-bg-muted: #e5e7eb;
+  --color-bg-purple-soft: #ddd6ff;
+  --color-bg-purple-50: #ede9fe;
+  --color-bg-slate-100: #f1f5f9;
+
+  /* ─────────────────────────────────────────────
+     COLORS — Text / Foreground (Light)
+  ───────────────────────────────────────────── */
+  --color-fg: #101828;
+  --color-fg-alt: #0f172a;
+  --color-fg-strong: #364153;
+  --color-fg-medium: #4a5565;
+  --color-fg-body: #6a7282;
+  --color-fg-muted: #99a1af;
+  --color-fg-subtle: #94a3b8;
+  --color-fg-disabled: #cad5e2;
+  --color-fg-inverted: #f1f5f9;
+  --color-fg-white: #ffffff;
+
+  /* ─────────────────────────────────────────────
+     COLORS — Borders (Light)
+  ───────────────────────────────────────────── */
+  --color-border: #e5e7eb;
+  --color-border-focus: #7f22fe;
+  --color-border-light: #c4b4ff;
+
+  /* ─────────────────────────────────────────────
+     COLORS — Semantic / Status
+  ───────────────────────────────────────────── */
+  --color-success: #00a63e;
+  --color-success-bg: #dcfce7;
+  --color-warning: #d08700;
+  --color-warning-bg: #fef9c2;
+  --color-info: #155dfc;
+  --color-info-bg: #dbeafe;
+  --color-danger: #e7000b;
+  --color-danger-bg: #ffe2e2;
+  --color-orange: #e17100;
+  --color-orange-bg: #fef3c6;
+
+  /* ─────────────────────────────────────────────
+     TYPOGRAPHY
+  ───────────────────────────────────────────── */
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-pro: "SF Pro", -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* ─────────────────────────────────────────────
+     BORDER RADIUS
+  ───────────────────────────────────────────── */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 24px;
+  --radius-full: 9999px;
+
+  /* ─────────────────────────────────────────────
+     SHADOWS
+  ───────────────────────────────────────────── */
+  --shadow-sm: 0px 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-card: 0px 4px 12px rgba(0, 0, 0, 0.04);
+
+  /* ─────────────────────────────────────────────
+     SPACING
+  ───────────────────────────────────────────── */
+  --spacing-sidebar: 280px;
+  --spacing-header: 64px;
+}
+
+/* ─────────────────────────────────────────────
+   DARK MODE OVERRIDES
+───────────────────────────────────────────── */
+.dark {
+  --color-bg-page: #0b1120; /* Deep slate */
+  --color-bg-sidebar: #111827; /* slate-900 */
+  --color-bg-card: #111827;
+  --color-bg-input: #1e293b; /* slate-800 */
+  --color-bg-muted: #1e293b;
+  --color-bg-purple-soft: #4c1d95; /* purple-900 */
+  --color-bg-purple-50: #2e1065; /* purple-950 */
+
+  --color-fg: #f1f5f9; /* slate-100 */
+  --color-fg-alt: #e2e8f0;
+  --color-fg-strong: #f8fafc;
+  --color-fg-medium: #cbd5e1; /* slate-300 */
+  --color-fg-body: #94a3b8; /* slate-400 */
+  --color-fg-muted: #64748b; /* slate-500 */
+  --color-fg-subtle: #475569;
+  --color-fg-disabled: #334155;
+  --color-fg-inverted: #1e293b;
+
+  --color-border: #334155; /* slate-700 */
+  --color-border-light: #4c1d95;
+
+  /* Make shadows deeper for dark mode */
+  --shadow-sm: 0px 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-card: 0px 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+/* Custom Easing Curves from Design Engineering Skill */
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+body {
+  @apply bg-bg-page text-fg antialiased transition-colors duration-150;
+  font-family: var(--font-sans);
+}
+
+/* Tailwind 4 Gradient Utilities */
+@utility bg-gradient-brand {
+  background: linear-gradient(
+    90deg,
+    #01b2db -53.84%,
+    #7f22fe 30.5%,
+    #b710c6 114.85%
+  );
+}
+
+@utility bg-gradient-logo {
+  background: linear-gradient(0deg, #9f2fff 0%, #0bb1d3 100%);
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}

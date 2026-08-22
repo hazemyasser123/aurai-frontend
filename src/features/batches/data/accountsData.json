@@ -1,0 +1,58 @@
+[
+  {
+    "id": "acc_001",
+    "name": "Dubai Properties",
+    "domain": "dubaiproperties.com",
+    "external_id": "789012defuvw",
+    "image": "https://placehold.co/56x56/DDD6FF/7F22FE?text=DP"
+  },
+  {
+    "id": "acc_002",
+    "name": "Nakheel",
+    "domain": "nakheel.com",
+    "external_id": "901234lmno",
+    "image": "https://placehold.co/56x56/DDD6FF/7F22FE?text=N"
+  },
+  {
+    "id": "acc_003",
+    "name": "Meraas",
+    "domain": "meraas.com",
+    "external_id": "345678ghijk",
+    "image": "https://placehold.co/56x56/DDD6FF/7F22FE?text=M"
+  },
+  {
+    "id": "acc_004",
+    "name": "Majid Al Futtaim",
+    "domain": "maf.ae",
+    "external_id": "567890pqrs",
+    "image": "https://placehold.co/56x56/DDD6FF/7F22FE?text=MAF"
+  },
+  {
+    "id": "acc_005",
+    "name": "Emaar Development",
+    "domain": "emaardev.com",
+    "external_id": "891012zyxw",
+    "image": "https://placehold.co/56x56/DDD6FF/7F22FE?text=ED"
+  },
+  {
+    "id": "acc_006",
+    "name": "Union Properties",
+    "domain": "unionproperties.ae",
+    "external_id": "234567tuvw",
+    "image": "https://placehold.co/56x56/DDD6FF/7F22FE?text=UP"
+  },
+  {
+    "id": "acc_007",
+    "name": "Imkan",
+    "domain": "imkan.com",
+    "external_id": "345678abce",
+    "image": "https://placehold.co/56x56/DDD6FF/7F22FE?text=I"
+  },
+  {
+    "id": "acc_008",
+    "name": "Aldar Properties",
+    "domain": "aldar.com",
+    "external_id": "123456abcxyz",
+    "image": "https://placehold.co/56x56/DDD6FF/7F22FE?text=AP"
+  }
+]
