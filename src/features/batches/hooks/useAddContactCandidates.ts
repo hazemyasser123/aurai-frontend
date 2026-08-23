@@ -1,13 +1,16 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { batchApi } from "@/shared/queries/batches/batchApi";
-import type { AddManualContactPayload } from "@/features/batches/types/batchTypes";
+import type { AddContactCandidatesPayload } from "@/features/batches/types/batchTypes";
 
-export const useAddManualContact = (accountId: string, batchId?: string) => {
+export const useAddContactCandidates = (
+  accountId: string,
+  batchId?: string,
+) => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (payload: AddManualContactPayload) =>
-      batchApi.addManualContact(accountId, payload),
+    mutationFn: (payload: AddContactCandidatesPayload) =>
+      batchApi.addContactCandidates(accountId, payload),
     onSuccess: () => {
       if (batchId) {
         queryClient.invalidateQueries({
@@ -15,6 +18,9 @@ export const useAddManualContact = (accountId: string, batchId?: string) => {
         });
         queryClient.invalidateQueries({
           queryKey: ["batches", "detail", batchId, "all-contacts"],
+        });
+        queryClient.invalidateQueries({
+          queryKey: ["batches", "detail", batchId, "accounts"],
         });
       }
     },

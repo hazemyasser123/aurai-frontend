@@ -51,10 +51,10 @@ export const ContactCard: React.FC<ContactCardProps> = ({ contact, accountId, ba
                 />
 
                 {contact.photo_url ? (
-                    <img src={contact.photo_url} alt={contact.first_name} className="w-10 h-10 rounded-full bg-bg-purple-50" />
+                    <img src={contact.photo_url} alt={contact.first_name ?? 'Contact'} className="w-10 h-10 rounded-full bg-bg-purple-50" />
                 ) : (
                     <div className="w-10 h-10 rounded-full bg-bg-purple-50 flex items-center justify-center font-semibold text-primary text-sm">
-                        {contact.first_name.charAt(0)}
+                        {(contact.first_name?.charAt(0) ?? '?').toUpperCase()}
                     </div>
                 )}
                 <div className="flex flex-col gap-0.5 min-w-0">

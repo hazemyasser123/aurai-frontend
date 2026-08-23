@@ -3,7 +3,7 @@ import { simulateApi } from "@/shared/utils/simulateApi";
 import dummyAccounts from "@/features/batches/data/accountsData.json";
 import type { Batch } from "@/features/batches/types/batchTypes";
 
-export const useFindAccounts = (batchId: string) => {
+export const useFindAccounts = (_batchId: string) => {
   return useMutation({
     // The payload isn't strictly needed for dummy data, but we accept it to maintain the hook signature
     mutationFn: async (payload: Partial<Batch>) => {

@@ -4,12 +4,19 @@ import { WithNavbar } from '@/shared/components/hoc/WithNavbar';
 import { Button } from '@/shared/components/ui';
 import { FiArrowLeft } from 'react-icons/fi';
 import { useBatch } from '@/features/batches/hooks/useBatch';
+import { useUpdateBatch } from '@/features/batches/hooks/useUpdateBatch';
+import { useCloneBatch } from '@/features/batches/hooks/useCloneBatch';
 import { BatchOverviewTab } from '@/features/batches/components/tabs/BatchOverviewTab';
 import { ProductIntelligenceTab } from '@/features/batches/components/tabs/ProductIntelligenceTab';
 import { IcpTab } from '@/features/batches/components/tabs/IcpTab';
 import { AccountsTab } from '@/features/batches/components/tabs/AccountsTab';
+import { ContactsFetchedView } from '@/features/batches/components/contactsFetched/ContactsFetchedView';
+import { CloneBatchModal } from '@/features/batches/components/CloneBatchModal';
 import { BatchCardSkeleton } from '@/features/batches/components/BatchCardSkeleton';
 import type { Batch } from '@/features/batches/types/batchTypes';
+import type { UpdateBatchPayload } from '@/features/batches/types/batchTypes';
+import toast from 'react-hot-toast';
+import { getErrorMessage } from '@/shared/utils/errorHandler';
 
 type TabKey = 'overview' | 'product' | 'icp' | 'accounts';
 
@@ -17,9 +24,12 @@ const BatchDetailPage: React.FC = () => {
     const { batchId } = useParams<{ batchId: string }>();
     const navigate = useNavigate();
     const { data: fetchedBatch, isLoading } = useBatch(batchId || '');
+    const updateBatch = useUpdateBatch(batchId || '');
 
     const [activeTab, setActiveTab] = useState<TabKey>('overview');
     const [formData, setFormData] = useState<Batch | null>(null);
+    const [isCloneOpen, setIsCloneOpen] = useState(false);
+    const cloneBatch = useCloneBatch();
 
     // Sync local state when API data is loaded
     useEffect(() => {
@@ -46,6 +56,45 @@ const BatchDetailPage: React.FC = () => {
                 [name]: value
             }
         }) : prev);
+    };
+
+    const handleSave = async () => {
+        if (!formData || !batchId) return;
+
+        // Map Batch.model (name) -> API payload (batch_name) + coerce numbers
+        const payload: UpdateBatchPayload = {
+            batch_name: formData.name,
+            base_product_id: formData.base_product_id || undefined,
+            status: formData.status,
+            product_analysis: formData.product_analysis,
+            icp: formData.icp,
+            cc_emails: formData.cc_emails,
+            bcc_emails: formData.bcc_emails,
+            human_action_loop_emails: formData.human_action_loop_emails,
+            forward_emails: formData.forward_emails,
+            enable_auto_followup: formData.enable_auto_followup,
+            followup_delay_days: formData.followup_delay_days != null ? Number(formData.followup_delay_days) : undefined,
+            max_results: formData.max_results != null ? Number(formData.max_results) : undefined,
+        };
+
+        try {
+            await updateBatch.mutateAsync(payload);
+            toast.success('Batch saved successfully');
+        } catch (error) {
+            toast.error(getErrorMessage(error));
+        }
+    };
+
+    const handleClone = async (newName: string) => {
+        if (!batchId) return;
+        try {
+            const cloned = await cloneBatch.mutateAsync({ batchId, batchName: newName });
+            toast.success(`Batch cloned as "${cloned.name}"`);
+            setIsCloneOpen(false);
+            navigate(`/batches/${cloned.id}`);
+        } catch (error) {
+            toast.error(getErrorMessage(error));
+        }
     };
 
     const tabs = [
@@ -80,8 +129,18 @@ const BatchDetailPage: React.FC = () => {
                     </div>
                 </div>
                 <div className="flex items-center gap-4 w-full sm:w-auto">
-                    <Button variant="outline" className="w-full sm:w-auto">Clone</Button>
-                    <Button variant="primary" className="w-full sm:w-auto">Save</Button>
+                    <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsCloneOpen(true)}>
+                        Clone
+                    </Button>
+                    <Button
+                        variant="primary"
+                        className="w-full sm:w-auto"
+                        onClick={handleSave}
+                        isLoading={updateBatch.isPending}
+                        disabled={updateBatch.isPending}
+                    >
+                        Save
+                    </Button>
                 </div>
             </div>
 
@@ -121,9 +180,21 @@ const BatchDetailPage: React.FC = () => {
                         onChange={(name, value) => handleNestedChange('icp', name, value)}
                     />
                 )}
-                {/* Update this line to pass formData */}
-                {activeTab === 'accounts' && <AccountsTab formData={formData} setFormData={setFormData} />}
+                {activeTab === 'accounts' &&
+                    (formData.status === 'contacts fetched' ? (
+                        <ContactsFetchedView batchId={formData.id} />
+                    ) : (
+                        <AccountsTab formData={formData} setFormData={setFormData} />
+                    ))}
             </div>
+
+            <CloneBatchModal
+                isOpen={isCloneOpen}
+                onClose={() => setIsCloneOpen(false)}
+                defaultName={formData.name}
+                onConfirm={handleClone}
+                isLoading={cloneBatch.isPending}
+            />
         </div>
     );
 };

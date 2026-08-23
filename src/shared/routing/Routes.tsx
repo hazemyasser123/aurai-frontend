@@ -9,6 +9,7 @@ import ExploreAccountsPage from '@/features/batches/pages/ExploreAccountsPage';
 import EnrichAndRankPage from '@/features/batches/pages/EnrichAndRankPage';
 import AccountFocusPage from '@/features/batches/pages/AccountFocusPage';
 import BatchContactsPage from '@/features/batches/pages/BatchContactsPage';
+import DraftMessagesPage from '@/features/batches/pages/DraftMessagesPage';
 
 // Define the shape of our route objects
 export interface AppRoute {
@@ -29,6 +30,7 @@ export const AppRoutes: AppRoute[] = [
     { path: '/batches/:batchId/accounts/enrich', Component: EnrichAndRankPage, protected: true },
     { path: '/batches/:batchId/accounts/:accountId', Component: AccountFocusPage, protected: true },
     { path: '/batches/:batchId/contacts', Component: BatchContactsPage, protected: true },
+    { path: '/batches/:batchId/draft', Component: DraftMessagesPage, protected: true },
     // Example protected route:
     // { path: '/users', Component: UsersListPage, protected: true, allowedRoles: ['ADMIN'] }
 ];

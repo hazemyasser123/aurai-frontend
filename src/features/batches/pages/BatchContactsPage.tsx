@@ -56,7 +56,7 @@ const BatchContactsPage: React.FC = () => {
                         </p>
                     </div>
                 </div>
-                <Button variant="gradient" className="w-full sm:w-auto">
+                <Button variant="gradient" className="w-full sm:w-auto" onClick={() => navigate(`/batches/${batchId}/draft`)}>
                     Draft Messages
                     <FiArrowRight className="w-4 h-4" />
                 </Button>

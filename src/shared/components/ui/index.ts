@@ -8,3 +8,4 @@ export * from "./Select";
 export * from "./Textarea";
 export * from "./TagInput";
 export * from "./CollapsibleSection";
+export * from "./HtmlEditor";

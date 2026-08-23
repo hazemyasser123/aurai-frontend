@@ -43,3 +43,38 @@ export const createBatchSchema = z.object({
 });
 
 export type CreateBatchFormData = z.infer<typeof createBatchSchema>;
+
+export const addManualContactSchema = z.object({
+  first_name: z.string().trim().min(1, "First name is required").max(50, "First name too long"),
+  last_name: z.string().trim().min(1, "Last name is required").max(50, "Last name too long"),
+  title: z.string().trim().max(100, "Title too long").optional().or(z.literal("")),
+  email: z
+    .string()
+    .trim()
+    .optional()
+    .or(z.literal(""))
+    .refine((v) => !v || z.string().email().safeParse(v).success, {
+      message: "Please enter a valid email address",
+    }),
+  phone: z
+    .string()
+    .trim()
+    .optional()
+    .or(z.literal(""))
+    .refine((v) => !v || /^\+?[0-9\s\-()]{7,20}$/.test(v), {
+      message: "Please enter a valid phone number (7-20 digits, may include + - ( ) and spaces)",
+    }),
+  linkedin_url: z
+    .string()
+    .trim()
+    .optional()
+    .or(z.literal(""))
+    .refine((v) => !v || z.string().url().safeParse(v).success, {
+      message: "Please enter a valid URL (https://...)",
+    })
+    .refine((v) => !v || /linkedin\.com\/in\//i.test(v), {
+      message: "LinkedIn URL must contain linkedin.com/in/",
+    }),
+});
+
+export type AddManualContactFormData = z.infer<typeof addManualContactSchema>;
