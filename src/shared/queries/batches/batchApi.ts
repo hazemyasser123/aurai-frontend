@@ -21,6 +21,7 @@ import type {
   SendBulkOutreachPayload,
   SendBulkOutreachResponse,
   OutreachThread,
+  OutreachMessage,
 } from "@/features/batches/types/batchTypes";
 
 // Normalize outreach API response: extract array + flatten nested contact/account objects
@@ -41,15 +42,17 @@ const normalizeOutreachResponse = (data: unknown): OutreachConversation[] => {
     const account = (item.account && typeof item.account === 'object' ? item.account : {}) as Record<string, unknown>;
     return {
       id: String(item.id ?? ''),
+      email_id: (item.email_id as string) ?? undefined,
       contact_id: String(item.contact_id ?? contact.id ?? ''),
       // Flatten nested contact
-      first_name: (item.first_name ?? contact.first_name ?? '') as string,
-      last_name: (item.last_name ?? contact.last_name ?? '') as string,
-      title: (item.title ?? contact.title ?? '') as string,
+      first_name: ((item.first_name ?? contact.first_name) ?? '') as string,
+      last_name: ((item.last_name ?? contact.last_name) ?? '') as string,
+      title: ((item.title ?? contact.title) ?? '') as string,
       photo_url: ((item.photo_url ?? contact.photo_url) ?? null) as string | null,
       account_id: String(item.account_id ?? contact.account_id ?? account.id ?? ''),
-      account_name: (item.account_name ?? contact.account_name ?? account.name ?? '') as string,
-      account_domain: (item.account_domain ?? contact.account_domain ?? account.domain ?? '') as string,
+      account_name: ((item.account_name ?? contact.account_name ?? account.name) ?? '') as string,
+      account_domain: ((item.account_domain ?? contact.account_domain ?? account.domain) ?? '') as string,
+      account_logo_url: ((item.account_logo_url ?? account.logo_url) ?? null) as string | null,
       recipient_email: ((item.recipient_email ?? contact.primary_email) ?? null) as string | null,
       channel_type: item.channel_type as string | undefined,
       status: (item.status ?? '') as string,
@@ -59,9 +62,12 @@ const normalizeOutreachResponse = (data: unknown): OutreachConversation[] => {
       batch_name: item.batch_name as string | undefined,
       created_at: item.created_at as string | undefined,
       updated_at: item.updated_at as string | undefined,
+      last_message_at: item.last_message_at as string | undefined,
+      message_count: typeof item.message_count === 'number' ? item.message_count : undefined,
       classification: item.classification as string | undefined,
       needs_human_action: item.needs_human_action as boolean | undefined,
       human_action_reason: item.human_action_reason as string | undefined,
+      needs_followup: item.needs_followup as boolean | undefined,
       outreach_status: item.outreach_status as string | undefined,
       conversation_status: item.conversation_status as string | undefined,
     } as OutreachConversation;
@@ -250,16 +256,86 @@ export const batchApi = {
     return response.data;
   },
 
-  getOutreachThread: async (conversationId: string) => {
-    const response = await systemApi.get<OutreachThread>(
+  getOutreachThread: async (conversationId: string): Promise<OutreachThread> => {
+    const response = await systemApi.get<unknown>(
       `/outreach/conversations/${conversationId}/thread`,
     );
-    return response.data;
+    const data = response.data as Record<string, unknown>;
+    const contact = (data?.contact && typeof data.contact === 'object' ? data.contact : {}) as Record<string, unknown>;
+    const account = (data?.account && typeof data.account === 'object' ? data.account : {}) as Record<string, unknown>;
+    const email = (data?.email && typeof data.email === 'object' ? data.email : null) as Record<string, unknown> | null;
+    const rawMessages = Array.isArray(data?.messages) ? (data!.messages as unknown[]) : [];
+
+    return {
+      id: String(data?.id ?? conversationId),
+      conversation_id: String(data?.id ?? conversationId),
+      email_id: (data?.email_id as string) ?? undefined,
+      batch_id: (data?.batch_id as string) ?? undefined,
+      contact_id: String(data?.contact_id ?? contact.id ?? ''),
+      account_id: String(data?.account_id ?? account.id ?? ''),
+      status: (data?.status as string) ?? '',
+      needs_human_action: !!data?.needs_human_action,
+      human_action_reason: data?.human_action_reason as string | undefined,
+      // Flatten nested contact
+      first_name: ((data?.first_name ?? contact.first_name) ?? '') as string,
+      last_name: ((data?.last_name ?? contact.last_name) ?? '') as string,
+      title: ((data?.title ?? contact.title) ?? '') as string,
+      photo_url: ((data?.photo_url ?? contact.photo_url) ?? null) as string | null,
+      recipient_email: ((contact.primary_email ?? data?.recipient_email) ?? null) as string | null,
+      account_name: ((data?.account_name ?? contact.account_name ?? account.name) ?? '') as string,
+      account_domain: ((data?.account_domain ?? contact.account_domain ?? account.domain) ?? '') as string,
+      account_logo_url: (account.logo_url ?? null) as string | null,
+      // Original cold email that started the thread
+      email: email
+        ? {
+            id: email.id as string | undefined,
+            subject: (email.subject as string) ?? '',
+            body: (email.body as string) ?? '',
+            sent_at: (email.sent_at as string | null) ?? null,
+          }
+        : null,
+      // Normalize messages to a common shape (body / direction / created_at)
+      messages: rawMessages.map((m) => {
+        const msg = m as Record<string, unknown>;
+        return {
+          id: msg.id as string | undefined,
+          direction: (msg.direction as string) ?? 'inbound',
+          sender: msg.sender as string | undefined,
+          body: (msg.body ?? msg.bodyText ?? msg.bodyHtml ?? '') as string,
+          created_at: (msg.created_at ?? msg.occurredAt) as string | undefined,
+        };
+      }),
+    } as OutreachThread;
   },
 
   getOutreachConversation: async (conversationId: string) => {
     const response = await systemApi.get<OutreachConversation>(
       `/outreach/conversations/${conversationId}`,
+    );
+    return response.data;
+  },
+
+  // Conversations inbox
+  listConversations: async (params?: import("@/features/batches/types/batchTypes").ListConversationsParams) => {
+    return normalizeOutreachResponse(
+      (await systemApi.get<unknown>("/outreach/conversations", { params })).data,
+    );
+  },
+
+  // Send a rep-authored reply into a live thread (clears human-action flag server-side).
+  // Body shape per API doc: { "body": "..." } — 422 if missing/empty.
+  sendManualReply: async (conversationId: string, content: string) => {
+    const response = await systemApi.post<OutreachMessage>(
+      `/outreach/conversations/${conversationId}/reply`,
+      { body: content },
+    );
+    return response.data;
+  },
+
+  // Clear the human-action flag without sending a reply
+  resolveConversation: async (conversationId: string) => {
+    const response = await systemApi.post<OutreachConversation>(
+      `/outreach/conversations/${conversationId}/resolve`,
     );
     return response.data;
   },

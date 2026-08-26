@@ -110,7 +110,7 @@ export const ContactsFetchedView: React.FC<Props> = ({ batchId }) => {
               <div className="flex flex-col gap-1">
                 <span className="font-sans font-semibold text-xs text-fg-strong">Subject</span>
                 <div className="px-4 py-2.5 bg-bg-input border border-border rounded-lg text-sm text-fg-strong">
-                  {thread?.subject || selected.subject || '—'}
+                  {thread?.email?.subject || selected.subject || '—'}
                 </div>
               </div>
 
@@ -124,12 +124,11 @@ export const ContactsFetchedView: React.FC<Props> = ({ batchId }) => {
                       {thread.messages.map((m, idx) => (
                         <div key={idx} className="flex flex-col gap-1 p-3 bg-bg-card rounded-lg border border-border/50">
                           <span className="font-sans font-medium text-xs text-fg-muted">
-                            {m.fromAddress || m.displayText || (m.direction === 'outbound' ? 'You' : 'Contact')} · {m.occurredAt ? new Date(m.occurredAt).toLocaleString() : ''}
+                            {(m.direction === 'outbound' ? 'You' : 'Contact')} · {m.created_at ? new Date(m.created_at).toLocaleString() : ''}
                           </span>
-                          {m.subject && <span className="font-sans font-semibold text-sm text-fg">{m.subject}</span>}
                           <div
                             className="prose prose-sm max-w-none break-words [&_a]:text-primary [&_a]:underline"
-                            dangerouslySetInnerHTML={{ __html: m.bodyHtml || m.bodyText || '' }}
+                            dangerouslySetInnerHTML={{ __html: m.body || '' }}
                           />
                         </div>
                       ))}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { FiGrid, FiSliders, FiFolder, FiLogOut, FiX } from 'react-icons/fi';
+import { FiGrid, FiSliders, FiFolder, FiLogOut, FiX, FiMessageSquare } from 'react-icons/fi';
 import { useSelector, useDispatch } from 'react-redux';
 import type { RootState } from '@/shared/redux/store/store';
 import { logout } from '@/shared/redux/slices/authSlice';
@@ -37,10 +37,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     const navItems = [
         { name: 'Selling Products', icon: FiGrid, path: '/products' },
         { name: 'Outreach Batches', icon: FiSliders, path: '/' },
+        { name: 'Conversations', icon: FiMessageSquare, path: '/conversations' },
         { name: 'Account Pool', icon: FiFolder, path: '/accounts' },
     ];
     const isActive = (path: string) => {
         if (path === '/') return location.pathname === '/' || location.pathname.startsWith('/batches');
+        if (path === '/conversations') return location.pathname.startsWith('/conversations');
         return location.pathname.startsWith(path);
     };
 

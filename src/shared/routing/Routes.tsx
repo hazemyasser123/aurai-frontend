@@ -16,6 +16,7 @@ import ProductSourcesPage from '@/features/products/pages/ProductSourcesPage';
 import ProductTriggerPage from '@/features/products/pages/ProductTriggerPage';
 import ProductWorkspacePage from '@/features/products/pages/ProductWorkspacePage';
 import ProductAnalyzePlaceholderPage from '@/features/products/pages/ProductAnalyzePlaceholderPage';
+import ConversationsPage from '@/features/conversations/pages/ConversationsPage';
 
 // Define the shape of our route objects
 export interface AppRoute {
@@ -43,6 +44,7 @@ export const AppRoutes: AppRoute[] = [
     { path: '/batches/:batchId/accounts/:accountId', Component: AccountFocusPage, protected: true },
     { path: '/batches/:batchId/contacts', Component: BatchContactsPage, protected: true },
     { path: '/batches/:batchId/draft', Component: DraftMessagesPage, protected: true },
+    { path: '/conversations', Component: ConversationsPage, protected: true },
     // Example protected route:
     // { path: '/users', Component: UsersListPage, protected: true, allowedRoles: ['ADMIN'] }
 ];

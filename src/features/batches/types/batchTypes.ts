@@ -211,6 +211,7 @@ export interface OutreachConversation {
   human_action_reason?: string;
   outreach_status?: string;
   conversation_status?: string;
+  needs_followup?: boolean;
 }
 
 export interface DraftOutreachPayload {
@@ -235,27 +236,88 @@ export interface SendBulkOutreachResponse {
 
 export interface OutreachMessage {
   id?: string;
-  direction?: string;
-  fromAddress?: string;
-  toAddresses?: string[];
-  subject?: string;
+  conversation_id?: string;
+  direction?: string; // "outbound" (agent) | "inbound" (contact)
+  sender?: string;
+  body?: string;
   bodyText?: string;
   bodyHtml?: string;
+  created_at?: string;
   occurredAt?: string;
-  displayText?: string;
 }
 
+export interface OutreachEmail {
+  id?: string;
+  batch_id?: string;
+  account_id?: string;
+  contact_id?: string;
+  subject?: string;
+  body?: string;
+  sent_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// GET /outreach/conversations/:id/thread response (normalized by batchApi)
 export interface OutreachThread {
-  conversation_id: string;
+  id: string;
+  conversation_id?: string;
   external_thread_id?: string;
-  subject: string;
-  recipient_email: string;
+  email_id?: string;
+  batch_id?: string;
+  contact_id?: string;
+  account_id?: string;
   status: string;
   classification?: string;
   needs_human_action?: boolean;
   human_action_reason?: string;
+  resolved_at?: string;
   first_name?: string;
   last_name?: string;
+  title?: string;
+  photo_url?: string | null;
+  recipient_email?: string | null;
   account_name?: string;
+  account_domain?: string;
+  account_logo_url?: string | null;
+  // The original cold email that started the thread
+  email?: OutreachEmail | null;
+  // Everything after the original email, chronological
   messages: OutreachMessage[];
+}
+
+// Conversations inbox (GET /outreach/conversations)
+export interface Conversation {
+  id: string;
+  email_id?: string;
+  contact_id: string;
+  first_name: string;
+  last_name: string;
+  title: string;
+  photo_url: string | null;
+  account_id: string;
+  account_name: string;
+  account_domain: string;
+  account_logo_url?: string | null;
+  recipient_email: string | null;
+  batch_id?: string;
+  batch_name?: string;
+  status: string;
+  classification?: string;
+  needs_human_action?: boolean;
+  human_action_reason?: string;
+  needs_followup?: boolean;
+  subject?: string;
+  sent_at?: string | null;
+  last_message_at?: string | null;
+  message_count?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ListConversationsParams {
+  batch_id?: string;
+  status?: string;
+  classification?: string;
+  needs_human_action?: boolean;
 }

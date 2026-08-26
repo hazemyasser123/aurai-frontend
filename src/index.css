@@ -134,6 +134,13 @@ body {
   font-family: var(--font-sans);
 }
 
+/* Native <option> popups inherit the select's color — keep them readable
+   even when the closed control uses transparent text (overlay label pattern) */
+select option {
+  color: #101828;
+  background-color: #ffffff;
+}
+
 /* Tailwind 4 Gradient Utilities */
 @utility bg-gradient-brand {
   background: linear-gradient(
