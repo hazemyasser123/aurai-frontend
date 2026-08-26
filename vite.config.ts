@@ -14,7 +14,7 @@ export default defineConfig({
     proxy: {
       // Any request starting with /api will be forwarded to localhost:3000
       "/api": {
-        target: "http://localhost:3000",
+        target: "http://localhost:3001",
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ""), // removes /api prefix
       },

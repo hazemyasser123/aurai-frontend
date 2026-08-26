@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { FiGrid, FiSliders, FiFolder, FiLogOut, FiX } from 'react-icons/fi';
 import { useSelector, useDispatch } from 'react-redux';
 import type { RootState } from '@/shared/redux/store/store';
@@ -23,6 +23,7 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
+    const location = useLocation();
     const { user } = useSelector((state: RootState) => state.auth);
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
@@ -34,10 +35,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     };
 
     const navItems = [
-        { name: 'Selling Products', icon: FiGrid, path: '/products', active: false },
-        { name: 'Outreach Batches', icon: FiSliders, path: '/', active: true },
-        { name: 'Account Pool', icon: FiFolder, path: '/accounts', active: false },
+        { name: 'Selling Products', icon: FiGrid, path: '/products' },
+        { name: 'Outreach Batches', icon: FiSliders, path: '/' },
+        { name: 'Account Pool', icon: FiFolder, path: '/accounts' },
     ];
+    const isActive = (path: string) => {
+        if (path === '/') return location.pathname === '/' || location.pathname.startsWith('/batches');
+        return location.pathname.startsWith(path);
+    };
 
     return (
         <>
@@ -68,20 +73,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                     </div>
 
                     <nav className="flex flex-col gap-1 px-0 mt-4">
-                        {navItems.map((item) => (
-                            <NavLink
-                                key={item.name}
-                                to={item.path}
-                                onClick={onClose} // Close drawer on navigation
-                                className={`flex items-center gap-3 px-6 py-3 font-sans font-medium text-sm tracking-tight transition-colors ${item.active
-                                    ? 'bg-bg-purple-soft text-fg'
-                                    : 'text-fg-body hover:bg-bg-muted/50'
-                                    }`}
-                            >
-                                <item.icon className="w-4.5 h-4.5" strokeWidth={1.5} />
-                                <span>{item.name}</span>
-                            </NavLink>
-                        ))}
+                        {navItems.map((item) => {
+                            const active = isActive(item.path);
+                            return (
+                                <NavLink
+                                    key={item.name}
+                                    to={item.path}
+                                    onClick={onClose}
+                                    className={`flex items-center gap-3 px-6 py-3 font-sans font-medium text-sm tracking-tight transition-colors ${active ? 'bg-bg-purple-soft text-fg' : 'text-fg-body hover:bg-bg-muted/50'
+                                        }`}
+                                >
+                                    <item.icon className="w-4.5 h-4.5" strokeWidth={1.5} />
+                                    <span>{item.name}</span>
+                                </NavLink>
+                            );
+                        })}
                     </nav>
                 </div>
 

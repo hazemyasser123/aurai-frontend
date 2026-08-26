@@ -6,17 +6,10 @@ import type {
 
 export const authApi = {
   login: async (data: { username: string; password: string }) => {
-    const formData = new URLSearchParams();
-    formData.append("username", data.username);
-    formData.append("password", data.password);
-
-    const response = await anonymousApi.post<LoginResponse>(
-      "/auth/login",
-      formData,
-      {
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      },
-    );
+    const response = await anonymousApi.post<LoginResponse>("/auth/login", {
+      username: data.username,
+      password: data.password,
+    });
     return response.data;
   },
 

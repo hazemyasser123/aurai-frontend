@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { WithNavbar } from '@/shared/components/hoc/WithNavbar';
 import { Button, InputField, Modal, Textarea } from '@/shared/components/ui';
@@ -8,6 +8,8 @@ import { useDeleteBatchAccount } from '@/features/batches/hooks/useDeleteBatchAc
 import { useAddBatchAccount } from '@/features/batches/hooks/useAddBatchAccount';
 import { useFetchMoreAccounts } from '@/features/batches/hooks/useFetchMoreAccounts';
 import { useEnrichAndEvaluateAccounts } from '@/features/batches/hooks/useEnrichAndEvaluateAccounts';
+import { useBatch } from '@/features/batches/hooks/useBatch';
+import { getBatchStep, getStatusRoute } from '@/features/batches/utils/batchFlow';
 import { AccountCardSkeleton } from '@/features/batches/components/AccountCardSkeleton';
 import type { Account } from '@/features/batches/types/batchTypes';
 import toast from 'react-hot-toast';
@@ -18,10 +20,20 @@ const ExploreAccountsPage: React.FC = () => {
     const navigate = useNavigate();
 
     const { data: accounts, isLoading } = useBatchAccounts(batchId || '');
+    const { data: batch, isLoading: isLoadingBatch } = useBatch(batchId || '');
     const deleteAccount = useDeleteBatchAccount(batchId || '');
     const addAccount = useAddBatchAccount(batchId || '');
     const fetchMore = useFetchMoreAccounts(batchId || '');
     const enrichMutation = useEnrichAndEvaluateAccounts(batchId || '');
+
+    // Access control: this page is only for the 'explore' step (status Draft).
+    // Any later status redirects to its canonical page.
+    useEffect(() => {
+        if (!batch || !batchId) return;
+        if (getBatchStep(batch.status) !== 'explore') {
+            navigate(getStatusRoute(batchId, batch.status), { replace: true });
+        }
+    }, [batch, batchId, navigate]);
 
     const [searchQuery, setSearchQuery] = useState('');
     const [accountToDelete, setAccountToDelete] = useState<Account | null>(null);
@@ -30,6 +42,7 @@ const ExploreAccountsPage: React.FC = () => {
     const [domainsInput, setDomainsInput] = useState('');
 
     const isFetchingMore = fetchMore.isPending;
+    const isGuardLoading = isLoadingBatch;
 
     const filteredAccounts = accounts?.filter(account => {
         const lowerCaseQuery = searchQuery.toLowerCase();
@@ -206,7 +219,7 @@ const ExploreAccountsPage: React.FC = () => {
             </div>
 
             {/* Account Cards Grid */}
-            {isLoading ? (
+            {isLoading || isGuardLoading ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {Array.from({ length: 6 }).map((_, i) => (
                         <AccountCardSkeleton key={i} />

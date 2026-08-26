@@ -9,3 +9,4 @@ export * from "./Textarea";
 export * from "./TagInput";
 export * from "./CollapsibleSection";
 export * from "./HtmlEditor";
+export * from "./DropZone";

@@ -34,9 +34,12 @@ export const FindContactsModal: React.FC<FindContactsModalProps> = ({
 
     const selectedCount = selected.size;
 
+    const getCandidateId = (c: ContactCandidate, index?: number) =>
+        `${c.source}::${c.source_identifier}::${c.email ?? c.first_name + c.last_name}::${index ?? ''}`;
+
     const selectedCandidates = useMemo(() => {
         if (!Array.isArray(candidates)) return [];
-        return candidates.filter((c) => selected.has(c.source_identifier));
+        return candidates.filter((c, idx) => selected.has(getCandidateId(c, idx)));
     }, [candidates, selected]);
 
     const handleSearch = async () => {
@@ -69,11 +72,11 @@ export const FindContactsModal: React.FC<FindContactsModalProps> = ({
         }
     };
 
-    const handleToggle = (sourceId: string) => {
+    const handleToggle = (candidateId: string) => {
         setSelected((prev) => {
             const next = new Set(prev);
-            if (next.has(sourceId)) next.delete(sourceId);
-            else next.add(sourceId);
+            if (next.has(candidateId)) next.delete(candidateId);
+            else next.add(candidateId);
             return next;
         });
     };
@@ -83,7 +86,7 @@ export const FindContactsModal: React.FC<FindContactsModalProps> = ({
         if (selected.size === candidates.length) {
             setSelected(new Set());
         } else {
-            setSelected(new Set(candidates.map((c) => c.source_identifier)));
+            setSelected(new Set(candidates.map((c, idx) => getCandidateId(c, idx))));
         }
     };
 
@@ -187,17 +190,18 @@ export const FindContactsModal: React.FC<FindContactsModalProps> = ({
                         ) : (
                             <>
                                 <div className="flex flex-col gap-2 max-h-[320px] overflow-y-auto pr-1">
-                                    {candidates.map((candidate) => {
-                                        const isSelected = selected.has(candidate.source_identifier);
+                                    {candidates.map((candidate, idx) => {
+                                        const uid = getCandidateId(candidate, idx);
+                                        const isSelected = selected.has(uid);
                                         return (
                                             <label
-                                                key={candidate.source_identifier}
+                                                key={uid}
                                                 className={`flex items-center gap-3 p-3 rounded-lg border border-solid cursor-pointer transition-[border-color,background-color] duration-150 ease-out ${isSelected ? 'bg-bg-purple-50 border-border-light' : 'bg-bg-card border-border hover:border-border-light'}`}
                                             >
                                                 <input
                                                     type="checkbox"
                                                     checked={isSelected}
-                                                    onChange={() => handleToggle(candidate.source_identifier)}
+                                                    onChange={() => handleToggle(uid)}
                                                     className="w-4 h-4 accent-primary cursor-pointer shrink-0"
                                                 />
                                                 {candidate.photo_url ? (

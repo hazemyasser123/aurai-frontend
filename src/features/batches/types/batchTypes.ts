@@ -1,5 +1,6 @@
-// Enums
-export type BatchStatus = "Draft" | "Executed" | "contacts fetched";
+// Enums — synced with backend (Python str, Enum)
+export type BatchStatus = "Draft" | "Enriched" | "contacts fetched" | "emails drafted" | "outriched" | "Executed";
+export type BatchAccountStatus = "Best fit" | "likely match" | "poor" | "Ignored";
 
 export interface ProductAnalysis {
   executive_summary?: string;
@@ -58,7 +59,7 @@ export interface Batch {
 
 // Request shapes
 export interface CreateBatchPayload {
-  batch_name: string;
+  name: string;
   base_product_id?: string;
   max_results?: number;
   cc_emails?: string[];
@@ -149,7 +150,7 @@ export interface AddContactCandidatesPayload {
 }
 
 export interface UpdateBatchPayload {
-  batch_name?: string;
+  name?: string;
   base_product_id?: string;
   status?: string;
   product_analysis?: ProductAnalysis;
@@ -161,6 +162,27 @@ export interface UpdateBatchPayload {
   enable_auto_followup?: boolean;
   followup_delay_days?: number;
   max_results?: number;
+}
+
+export interface FindAccountsPayload {
+  id?: string;
+  name?: string;
+  batch_name?: string;
+  base_product_id?: string;
+  product_analysis?: ProductAnalysis;
+  icp?: Icp;
+  max_results?: number;
+  cc_emails?: string[];
+  bcc_emails?: string[];
+  human_action_loop_emails?: string[];
+  forward_emails?: string[];
+  enable_auto_followup?: boolean;
+  followup_delay_days?: number;
+}
+
+export interface FindBatchContactsPayload {
+  account_ids?: string[];
+  force?: boolean;
 }
 
 // Outreach / Draft Messages
@@ -201,13 +223,14 @@ export interface UpdateOutreachPayload {
 }
 
 export interface SendBulkOutreachPayload {
-  conversation_ids: string[];
+  batch_id?: string;      // Option 1: send all unsent emails in a batch
+  email_ids?: string[];   // Option 2: send specific emails by ID
 }
 
 export interface SendBulkOutreachResponse {
-  results: Array<{ conversation_id: string; success: boolean; error?: string }>;
   sent_count: number;
-  failed_count: number;
+  batch_status?: string;  // e.g. "outriched" when last unsent email is sent
+  emails?: OutreachConversation[];
 }
 
 export interface OutreachMessage {

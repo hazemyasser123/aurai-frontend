@@ -10,6 +10,12 @@ import EnrichAndRankPage from '@/features/batches/pages/EnrichAndRankPage';
 import AccountFocusPage from '@/features/batches/pages/AccountFocusPage';
 import BatchContactsPage from '@/features/batches/pages/BatchContactsPage';
 import DraftMessagesPage from '@/features/batches/pages/DraftMessagesPage';
+import ProductsPage from '@/features/products/pages/ProductsPage';
+import RegisterProductPage from '@/features/products/pages/RegisterProductPage';
+import ProductSourcesPage from '@/features/products/pages/ProductSourcesPage';
+import ProductTriggerPage from '@/features/products/pages/ProductTriggerPage';
+import ProductWorkspacePage from '@/features/products/pages/ProductWorkspacePage';
+import ProductAnalyzePlaceholderPage from '@/features/products/pages/ProductAnalyzePlaceholderPage';
 
 // Define the shape of our route objects
 export interface AppRoute {
@@ -23,6 +29,12 @@ export interface AppRoute {
 export const AppRoutes: AppRoute[] = [
     { path: '/login', Component: LoginPage, protected: false },
     { path: '/test', Component: UITestPage, protected: false },
+    { path: '/products/register', Component: RegisterProductPage, protected: true },
+    { path: '/products/:productId/sources', Component: ProductSourcesPage, protected: true },
+    { path: '/products/:productId/trigger', Component: ProductTriggerPage, protected: true },
+    { path: '/products/:productId', Component: ProductWorkspacePage, protected: true },
+    { path: '/products/:productId/sources/analyze-placeholder', Component: ProductAnalyzePlaceholderPage, protected: true },
+    { path: '/products', Component: ProductsPage, protected: true },
     { path: '/', Component: BatchListPage, protected: true },
     { path: '/batches/new', Component: CreateBatchPage, protected: true },
     { path: '/batches/:batchId', Component: BatchDetailPage, protected: true },

@@ -19,9 +19,10 @@ export const BatchOverviewTab: React.FC<BatchOverviewTabProps> = ({ formData, ha
         }
     }, [isProductsError, productsError]);
 
-    // Lock core fields if the batch is Executed or has fetched contacts
-    const isLocked = formData.status === 'Executed' || formData.status === 'contacts fetched';
-    const lockedHint = isLocked ? "Locked because batch is executed or contacts are fetched." : undefined;
+    // Lock core fields if batch is no longer Draft — covers Enriched, contacts fetched, emails drafted, outriched, Executed
+    const lower = (formData.status || '').toLowerCase();
+    const isLocked = lower !== 'draft';
+    const lockedHint = isLocked ? `Locked because batch status is "${formData.status}" (editable only while Draft).` : undefined;
 
     return (
         <div className="flex flex-col gap-6">

@@ -23,7 +23,7 @@ const CreateBatchPage: React.FC = () => {
 
     const [formData, setFormData] = useState({
         base_product_id: '',
-        batch_name: '',
+        name: '',
         max_results: 50,
         batch_description: '',
         cc_emails: '',
@@ -67,7 +67,7 @@ const CreateBatchPage: React.FC = () => {
         }
 
         const payload = {
-            batch_name: validation.data.batch_name,
+            name: validation.data.name,
             base_product_id: validation.data.base_product_id,
             max_results: validation.data.max_results,
             cc_emails: parseEmails(validation.data.cc_emails || ''),
@@ -142,12 +142,12 @@ const CreateBatchPage: React.FC = () => {
                         <InputField
                             label="BATCH NAME *"
                             type="text"
-                            name="batch_name"
-                            id="batch_name"
+                            name="name"
+                            id="name"
                             placeholder="e.g., Q3 Enterprise Expansion"
-                            value={formData.batch_name}
+                            value={formData.name}
                             onChange={handleChange}
-                            error={errors.batch_name}
+                            error={errors.name}
                         />
                     </div>
 

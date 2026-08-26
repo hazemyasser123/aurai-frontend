@@ -21,7 +21,7 @@ const emailListSchema = z
 
 export const createBatchSchema = z.object({
   base_product_id: z.string().min(1, "Base product is required"),
-  batch_name: z.string().min(3, "Batch name must be at least 3 characters"),
+  name: z.string().min(3, "Batch name must be at least 3 characters"),
   max_results: z.coerce
     .number()
     .min(1, "Must be at least 1")

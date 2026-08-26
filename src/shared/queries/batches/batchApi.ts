@@ -23,6 +23,51 @@ import type {
   OutreachThread,
 } from "@/features/batches/types/batchTypes";
 
+// Normalize outreach API response: extract array + flatten nested contact/account objects
+const normalizeOutreachResponse = (data: unknown): OutreachConversation[] => {
+  let list: unknown[] = [];
+  if (Array.isArray(data)) {
+    list = data;
+  } else if (data && typeof data === 'object') {
+    const obj = data as Record<string, unknown>;
+    for (const key of ['outreach', 'data', 'conversations', 'items', 'results']) {
+      if (Array.isArray(obj[key])) { list = obj[key] as unknown[]; break; }
+    }
+  }
+
+  return list.map((raw) => {
+    const item = raw as Record<string, unknown>;
+    const contact = (item.contact && typeof item.contact === 'object' ? item.contact : {}) as Record<string, unknown>;
+    const account = (item.account && typeof item.account === 'object' ? item.account : {}) as Record<string, unknown>;
+    return {
+      id: String(item.id ?? ''),
+      contact_id: String(item.contact_id ?? contact.id ?? ''),
+      // Flatten nested contact
+      first_name: (item.first_name ?? contact.first_name ?? '') as string,
+      last_name: (item.last_name ?? contact.last_name ?? '') as string,
+      title: (item.title ?? contact.title ?? '') as string,
+      photo_url: ((item.photo_url ?? contact.photo_url) ?? null) as string | null,
+      account_id: String(item.account_id ?? contact.account_id ?? account.id ?? ''),
+      account_name: (item.account_name ?? contact.account_name ?? account.name ?? '') as string,
+      account_domain: (item.account_domain ?? contact.account_domain ?? account.domain ?? '') as string,
+      recipient_email: ((item.recipient_email ?? contact.primary_email) ?? null) as string | null,
+      channel_type: item.channel_type as string | undefined,
+      status: (item.status ?? '') as string,
+      subject: (item.subject ?? '') as string,
+      body: (item.body ?? '') as string,
+      batch_id: (item.batch_id ?? undefined) as string | undefined,
+      batch_name: item.batch_name as string | undefined,
+      created_at: item.created_at as string | undefined,
+      updated_at: item.updated_at as string | undefined,
+      classification: item.classification as string | undefined,
+      needs_human_action: item.needs_human_action as boolean | undefined,
+      human_action_reason: item.human_action_reason as string | undefined,
+      outreach_status: item.outreach_status as string | undefined,
+      conversation_status: item.conversation_status as string | undefined,
+    } as OutreachConversation;
+  });
+};
+
 export const batchApi = {
   getBatches: async () => {
     const response = await systemApi.get<Batch[]>("/batches");
@@ -36,6 +81,16 @@ export const batchApi = {
 
   createBatch: async (payload: CreateBatchPayload) => {
     const response = await systemApi.post<Batch>("/batches", payload);
+    return response.data;
+  },
+
+  findAccounts: async (payload: import("@/features/batches/types/batchTypes").FindAccountsPayload) => {
+    const response = await systemApi.post<Batch>("/batches/find-accounts", payload);
+    return response.data;
+  },
+
+  findBatchContacts: async (batchId: string, payload?: import("@/features/batches/types/batchTypes").FindBatchContactsPayload) => {
+    const response = await systemApi.post<Contact[]>(`/batches/${batchId}/contacts/search`, payload || {});
     return response.data;
   },
 
@@ -160,18 +215,13 @@ export const batchApi = {
 
   // Outreach — Draft & Send
   getBatchOutreach: async (batchId: string) => {
-    const response = await systemApi.get<OutreachConversation[]>(
-      `/batches/${batchId}/outreach`,
-    );
-    return response.data;
+    const response = await systemApi.get<unknown>(`/batches/${batchId}/outreach`);
+    return normalizeOutreachResponse(response.data);
   },
 
   draftBatchOutreach: async (batchId: string, payload: DraftOutreachPayload) => {
-    const response = await systemApi.post<OutreachConversation[]>(
-      `/batches/${batchId}/outreach/draft`,
-      payload,
-    );
-    return response.data;
+    const response = await systemApi.post<unknown>(`/batches/${batchId}/outreach/draft`, payload);
+    return normalizeOutreachResponse(response.data);
   },
 
   updateOutreachDraft: async (
@@ -215,10 +265,10 @@ export const batchApi = {
   },
 
   cloneBatch: async (batchId: string, batchName: string) => {
-    // Try dedicated clone endpoint if backend provides it
+    // Try dedicated clone endpoint if backend provides it — uses `name` per spec
     try {
       const response = await systemApi.post<Batch>(`/batches/${batchId}/clone`, {
-        batch_name: batchName,
+        name: batchName,
       });
       return response.data;
     } catch (err: unknown) {
@@ -227,9 +277,9 @@ export const batchApi = {
       if (axiosErr.response?.status === 404 || axiosErr.response?.status === 405 || axiosErr.response?.status === 422) {
         const original = await systemApi.get<Batch>(`/batches/${batchId}`);
         const b = original.data as Batch & Record<string, unknown>;
-        // Build create payload copying everything except id/status/created_at
+        // Build create payload copying everything except id/status/created_at — uses `name`
         const payload: CreateBatchPayload & Record<string, unknown> = {
-          batch_name: batchName,
+          name: batchName,
           base_product_id: b.base_product_id as string | undefined,
           max_results: b.max_results as number | undefined,
           cc_emails: b.cc_emails as string[] | undefined,

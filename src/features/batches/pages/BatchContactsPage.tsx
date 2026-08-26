@@ -1,12 +1,17 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { WithNavbar } from '@/shared/components/hoc/WithNavbar';
 import { Button, Modal, InputField } from '@/shared/components/ui';
 import { FiArrowLeft, FiArrowRight } from 'react-icons/fi';
 import { useBatchAccounts } from '@/features/batches/hooks/useBatchAccounts';
 import { useBatchContacts } from '@/features/batches/hooks/useBatchContacts';
+import { useDraftOutreach } from '@/features/batches/hooks/useDraftOutreach';
+import { useBatch } from '@/features/batches/hooks/useBatch';
+import { getBatchStep, getStatusRoute } from '@/features/batches/utils/batchFlow';
 import { AccountContactsSection } from '@/features/batches/components/AccountContactsSection';
 import type { Contact } from '@/features/batches/types/batchTypes';
+import toast from 'react-hot-toast';
+import { getErrorMessage } from '@/shared/utils/errorHandler';
 
 const BatchContactsPage: React.FC = () => {
     const { batchId } = useParams<{ batchId: string }>();
@@ -14,8 +19,33 @@ const BatchContactsPage: React.FC = () => {
 
     const { data: accounts, isLoading: isLoadingAccounts } = useBatchAccounts(batchId || '');
     const { data: contacts, isLoading: isLoadingContacts } = useBatchContacts(batchId || '');
+    const { data: batch, isLoading: isLoadingBatch } = useBatch(batchId || '');
+
+    // Access control: this page is only for the 'contacts' step (status "contacts fetched").
+    useEffect(() => {
+        if (!batch || !batchId) return;
+        if (getBatchStep(batch.status) !== 'contacts') {
+            navigate(getStatusRoute(batchId, batch.status), { replace: true });
+        }
+    }, [batch, batchId, navigate]);
 
     const [contactToView, setContactToView] = useState<Contact | null>(null);
+    const draftOutreach = useDraftOutreach(batchId || '');
+
+    const handleDraftMessages = async () => {
+        if (!contacts || contacts.length === 0) {
+            toast.error('No contacts to draft messages for');
+            return;
+        }
+        try {
+            // POST /batches/{id}/outreach/draft per spec — draft for all contacts in batch
+            await draftOutreach.mutateAsync(contacts.map((c) => c.id));
+            toast.success('Drafts created');
+            navigate(`/batches/${batchId}/draft`);
+        } catch (e) {
+            toast.error(getErrorMessage(e));
+        }
+    };
 
     // Group contacts by account_id
     const groupedData = useMemo(() => {
@@ -27,7 +57,7 @@ const BatchContactsPage: React.FC = () => {
         }));
     }, [accounts, contacts]);
 
-    const isLoading = isLoadingAccounts || isLoadingContacts;
+    const isLoading = isLoadingAccounts || isLoadingContacts || isLoadingBatch;
     const totalContacts = contacts?.length || 0;
     const totalAccounts = accounts?.length || 0;
 
@@ -56,7 +86,13 @@ const BatchContactsPage: React.FC = () => {
                         </p>
                     </div>
                 </div>
-                <Button variant="gradient" className="w-full sm:w-auto" onClick={() => navigate(`/batches/${batchId}/draft`)}>
+                <Button
+                    variant="gradient"
+                    className="w-full sm:w-auto"
+                    onClick={handleDraftMessages}
+                    isLoading={draftOutreach.isPending}
+                    disabled={draftOutreach.isPending || totalContacts === 0}
+                >
                     Draft Messages
                     <FiArrowRight className="w-4 h-4" />
                 </Button>

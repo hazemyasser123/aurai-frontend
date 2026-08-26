@@ -39,8 +39,9 @@ export const AccountStatusBadge: React.FC<AccountStatusBadgeProps> = ({ status }
             bgClass = 'bg-orange-bg text-orange';
             label = 'Poor Fit';
             break;
-        case 'error':
-            bgClass = 'bg-danger-bg text-danger';
+        case 'ignored':
+            bgClass = 'bg-bg-muted text-fg-muted';
+            label = 'Ignored';
             break;
     }
 

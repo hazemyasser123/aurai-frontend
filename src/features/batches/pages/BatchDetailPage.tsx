@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { WithNavbar } from '@/shared/components/hoc/WithNavbar';
 import { Button } from '@/shared/components/ui';
 import { FiArrowLeft } from 'react-icons/fi';
@@ -13,6 +13,7 @@ import { AccountsTab } from '@/features/batches/components/tabs/AccountsTab';
 import { ContactsFetchedView } from '@/features/batches/components/contactsFetched/ContactsFetchedView';
 import { CloneBatchModal } from '@/features/batches/components/CloneBatchModal';
 import { BatchCardSkeleton } from '@/features/batches/components/BatchCardSkeleton';
+import { getBatchStep, getStepRoute } from '@/features/batches/utils/batchFlow';
 import type { Batch } from '@/features/batches/types/batchTypes';
 import type { UpdateBatchPayload } from '@/features/batches/types/batchTypes';
 import toast from 'react-hot-toast';
@@ -23,10 +24,14 @@ type TabKey = 'overview' | 'product' | 'icp' | 'accounts';
 const BatchDetailPage: React.FC = () => {
     const { batchId } = useParams<{ batchId: string }>();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const { data: fetchedBatch, isLoading } = useBatch(batchId || '');
     const updateBatch = useUpdateBatch(batchId || '');
 
-    const [activeTab, setActiveTab] = useState<TabKey>('overview');
+    // Allow deep-linking to a tab, e.g. /batches/:id?tab=accounts (used after sending all emails)
+    const initialTab = (searchParams.get('tab') as TabKey) || 'overview';
+
+    const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
     const [formData, setFormData] = useState<Batch | null>(null);
     const [isCloneOpen, setIsCloneOpen] = useState(false);
     const cloneBatch = useCloneBatch();
@@ -37,6 +42,19 @@ const BatchDetailPage: React.FC = () => {
             setFormData(fetchedBatch);
         }
     }, [fetchedBatch]);
+
+    // Access control for deep links (?tab=accounts): intermediate statuses redirect
+    // to their canonical page instead of showing the accounts tab here.
+    useEffect(() => {
+        if (!fetchedBatch || !batchId) return;
+        const tab = searchParams.get('tab');
+        if (tab === 'accounts') {
+            const step = getBatchStep(fetchedBatch.status);
+            if (step === 'contacts' || step === 'draft') {
+                navigate(getStepRoute(batchId, step), { replace: true });
+            }
+        }
+    }, [fetchedBatch, batchId, searchParams, navigate]);
 
     // Handlers for form state
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -61,9 +79,8 @@ const BatchDetailPage: React.FC = () => {
     const handleSave = async () => {
         if (!formData || !batchId) return;
 
-        // Map Batch.model (name) -> API payload (batch_name) + coerce numbers
         const payload: UpdateBatchPayload = {
-            batch_name: formData.name,
+            name: formData.name,
             base_product_id: formData.base_product_id || undefined,
             status: formData.status,
             product_analysis: formData.product_analysis,
@@ -95,6 +112,35 @@ const BatchDetailPage: React.FC = () => {
         } catch (error) {
             toast.error(getErrorMessage(error));
         }
+    };
+
+    const lowerStatus = (formData?.status || '').toLowerCase();
+    const batchStep = getBatchStep(lowerStatus);
+    // Only these statuses render the outreached accounts view inline on this page
+    const isOutreached = batchStep === 'outreached';
+
+    // Access control: clicking Accounts routes to the step matching the batch status.
+    // Deep-links (?tab=accounts) for intermediate statuses are redirected in the effect below.
+    const handleTabChange = (key: TabKey) => {
+        if (key === 'accounts') {
+            switch (batchStep) {
+                case 'contacts':
+                    navigate(getStepRoute(formData!.id, 'contacts'));
+                    return;
+                case 'draft':
+                    navigate(getStepRoute(formData!.id, 'draft'));
+                    return;
+                case 'outreached':
+                    // stay on this page and show the outreached accounts view
+                    setActiveTab(key);
+                    return;
+                default:
+                    // explore / enrich: show AccountsTab which routes further
+                    setActiveTab(key);
+                    return;
+            }
+        }
+        setActiveTab(key);
     };
 
     const tabs = [
@@ -150,7 +196,7 @@ const BatchDetailPage: React.FC = () => {
                     {tabs.map((tab) => (
                         <button
                             key={tab.key}
-                            onClick={() => setActiveTab(tab.key)}
+                            onClick={() => handleTabChange(tab.key)}
                             className={`px-6 py-4 text-sm font-semibold tracking-tight transition-colors relative whitespace-nowrap ${activeTab === tab.key ? 'text-primary' : 'text-fg-body hover:text-fg'
                                 }`}
                         >
@@ -181,7 +227,7 @@ const BatchDetailPage: React.FC = () => {
                     />
                 )}
                 {activeTab === 'accounts' &&
-                    (formData.status === 'contacts fetched' ? (
+                    (isOutreached ? (
                         <ContactsFetchedView batchId={formData.id} />
                     ) : (
                         <AccountsTab formData={formData} setFormData={setFormData} />

@@ -14,14 +14,22 @@ interface BatchCardProps {
 export const BatchCard: React.FC<BatchCardProps> = ({ id, name, status, createdAt }) => {
     const navigate = useNavigate();
 
-    // Map statuses to badge variants
+    // Map BatchStatus to badge variants — synced with backend BatchStatus enum
     const lowerStatus = status.toLowerCase();
-    let badgeVariant: "success" | "info" | "warning" = "warning";
+    let badgeVariant: "success" | "info" | "warning" | "danger" = "warning";
 
-    if (lowerStatus === 'executed') {
-        badgeVariant = 'info'; // Blue
+    if (lowerStatus === 'draft') {
+        badgeVariant = 'warning';
+    } else if (lowerStatus === 'enriched') {
+        badgeVariant = 'info';
     } else if (lowerStatus === 'contacts fetched') {
-        badgeVariant = 'success'; // Green
+        badgeVariant = 'success';
+    } else if (lowerStatus === 'emails drafted') {
+        badgeVariant = 'info';
+    } else if (lowerStatus === 'outriched' || lowerStatus === 'outreached') {
+        badgeVariant = 'success';
+    } else if (lowerStatus === 'executed') {
+        badgeVariant = 'info';
     }
 
     return (

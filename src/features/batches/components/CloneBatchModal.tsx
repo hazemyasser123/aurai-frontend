@@ -11,7 +11,7 @@ interface Props {
 }
 
 const schema = z.object({
-  batch_name: z.string().trim().min(3, 'Batch name must be at least 3 characters').max(100, 'Too long'),
+  name: z.string().trim().min(3, 'Batch name must be at least 3 characters').max(100, 'Too long'),
 });
 
 export const CloneBatchModal: React.FC<Props> = ({ isOpen, onClose, defaultName = '', onConfirm, isLoading }) => {
@@ -26,13 +26,13 @@ export const CloneBatchModal: React.FC<Props> = ({ isOpen, onClose, defaultName 
   }, [isOpen, defaultName]);
 
   const handleSubmit = async () => {
-    const parsed = schema.safeParse({ batch_name: name });
+    const parsed = schema.safeParse({ name });
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message);
       return;
     }
     setError(undefined);
-    await onConfirm(parsed.data.batch_name);
+    await onConfirm(parsed.data.name);
   };
 
   const handleClose = () => {

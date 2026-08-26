@@ -18,7 +18,9 @@ interface Props {
 export const AccountDraftSection: React.FC<Props> = ({ account, conversations, defaultExpanded = true, onConversationUpdated }) => {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [selectedId, setSelectedId] = useState<string | null>(conversations[0]?.id ?? null);
-  const sendBulk = useSendBulkOutreach();
+  // Which contacts are checked for sending
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
+  const sendBulk = useSendBulkOutreach(conversations[0]?.batch_id);
 
   const selected = useMemo(() => conversations.find(c => c.id === selectedId) ?? conversations[0] ?? null, [conversations, selectedId]);
 
@@ -28,13 +30,40 @@ export const AccountDraftSection: React.FC<Props> = ({ account, conversations, d
     if (selectedId && !conversations.find(c => c.id === selectedId) && conversations[0]) setSelectedId(conversations[0].id);
   }, [conversations, selectedId]);
 
+  const handleToggleCheck = (id: string) => {
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const checkedCount = checkedIds.size;
+
+  const handleSendSelected = async () => {
+    if (checkedCount === 0) {
+      toast.error('Select at least one contact to send to');
+      return;
+    }
+    try {
+      // POST /outreach/conversations/send-bulk — Option 2: send specific emails by ID
+      const res = await sendBulk.mutateAsync({ email_ids: Array.from(checkedIds) });
+      toast.success(`Sent ${res.sent_count} message(s)`);
+      setCheckedIds(new Set());
+    } catch (e) {
+      toast.error(getErrorMessage(e));
+    }
+  };
+
   const handleSendAll = async () => {
     const ids = conversations.map(c => c.id);
     if (ids.length === 0) return;
     try {
-      const res = await sendBulk.mutateAsync(ids);
-      if (res.failed_count > 0) toast.error(`${res.failed_count} failed, ${res.sent_count} sent`);
-      else toast.success(`Sent ${res.sent_count} messages`);
+      // Option 2: only this account's drafts
+      const res = await sendBulk.mutateAsync({ email_ids: ids });
+      toast.success(`Sent ${res.sent_count} message(s)`);
+      setCheckedIds(new Set());
     } catch (e) {
       toast.error(getErrorMessage(e));
     }
@@ -63,6 +92,17 @@ export const AccountDraftSection: React.FC<Props> = ({ account, conversations, d
           </div>
         </div>
         <div className="flex items-center gap-3 shrink-0">
+          {checkedCount > 0 && (
+            <Button
+              variant="primary"
+              onClick={handleSendSelected}
+              isLoading={sendBulk.isPending}
+              disabled={sendBulk.isPending}
+              className="h-11 px-5"
+            >
+              Send Selected ({checkedCount})
+            </Button>
+          )}
           <Button variant="outline" onClick={handleSendAll} isLoading={sendBulk.isPending} className="h-11 px-5">
             Send All ({count})
           </Button>
@@ -90,6 +130,8 @@ export const AccountDraftSection: React.FC<Props> = ({ account, conversations, d
                     key={c.id}
                     conversation={c}
                     isSelected={c.id === selected?.id}
+                    isChecked={checkedIds.has(c.id)}
+                    onToggleCheck={handleToggleCheck}
                     onSelect={() => setSelectedId(c.id)}
                   />
                 ))
