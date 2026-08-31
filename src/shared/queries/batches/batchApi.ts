@@ -365,6 +365,11 @@ export const batchApi = {
     return response.data;
   },
 
+  deleteBatch: async (batchId: string) => {
+    const response = await systemApi.delete<{ detail: string; id: string }>(`/batches/${batchId}`);
+    return response.data;
+  },
+
   cloneBatch: async (batchId: string, batchName: string) => {
     // Try dedicated clone endpoint if backend provides it — uses `name` per spec
     try {
