@@ -80,6 +80,22 @@ export const batchApi = {
     return response.data;
   },
 
+  getDatasources: async () => {
+    const response = await systemApi.get<import("@/features/batches/types/batchTypes").BatchDatasources>("/batches/datasources");
+    return response.data;
+  },
+
+  getSeniorityLevels: async (): Promise<string[]> => {
+    const response = await systemApi.get<{ seniority_levels: string[] }>("/batches/seniority-levels");
+    const data = response.data as { seniority_levels?: string[] } & unknown;
+    if (Array.isArray((data as { seniority_levels: string[] }).seniority_levels)) {
+      return (data as { seniority_levels: string[] }).seniority_levels;
+    }
+    // Fallback if API returns raw array
+    if (Array.isArray(data)) return data as string[];
+    return [];
+  },
+
   getBatch: async (id: string) => {
     const response = await systemApi.get<Batch>(`/batches/${id}`);
     return response.data;
@@ -340,6 +356,15 @@ export const batchApi = {
     return response.data;
   },
 
+  chatIcp: async (batchId: string, payload: { message: string; current_icp: unknown }) => {
+    const response = await systemApi.post<{
+      reply: string;
+      changed_fields: string[];
+      proposed_icp: Record<string, unknown>;
+    }>(`/batches/${batchId}/icp/chat`, payload);
+    return response.data;
+  },
+
   cloneBatch: async (batchId: string, batchName: string) => {
     // Try dedicated clone endpoint if backend provides it — uses `name` per spec
     try {
@@ -375,6 +400,8 @@ export const batchApi = {
           ...(b.reply_working_hours_end ? { reply_working_hours_end: b.reply_working_hours_end } : {}),
           ...(b.reply_base_delay_minutes ? { reply_base_delay_minutes: b.reply_base_delay_minutes } : {}),
           ...(b.reply_delay_buffer_minutes ? { reply_delay_buffer_minutes: b.reply_delay_buffer_minutes } : {}),
+          ...(b.account_source ? { account_source: b.account_source } : {}),
+          ...(b.contact_source ? { contact_source: b.contact_source } : {}),
         };
         const created = await systemApi.post<Batch>(`/batches`, payload);
         return created.data;

@@ -1,11 +1,13 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Modal, InputField, Button } from '@/shared/components/ui';
 import { useSearchContactCandidates } from '@/features/batches/hooks/useSearchContactCandidates';
 import { useAddContactCandidates } from '@/features/batches/hooks/useAddContactCandidates';
+import { useSeniorityLevels } from '@/features/batches/hooks/useSeniorityLevels';
 import type { ContactCandidate } from '@/features/batches/types/batchTypes';
 import toast from 'react-hot-toast';
 import { getErrorMessage } from '@/shared/utils/errorHandler';
-import { FiSearch, FiCheck, FiUser } from 'react-icons/fi';
+import { FiSearch, FiCheck, FiUser, FiChevronDown, FiX } from 'react-icons/fi';
 import { FaLinkedinIn } from 'react-icons/fa';
 
 interface FindContactsModalProps {
@@ -32,6 +34,70 @@ export const FindContactsModal: React.FC<FindContactsModalProps> = ({
     const searchMutation = useSearchContactCandidates(accountId);
     const addMutation = useAddContactCandidates(accountId, batchId);
 
+    // Seniority levels — fetched from /batches/seniority-levels, searchable inside dropdown
+    const { data: seniorityLevelsData } = useSeniorityLevels();
+    const FALLBACK_SENIORITIES = ['c_suite', 'founder_owner', 'partner', 'vp', 'head', 'director', 'manager', 'senior', 'lead', 'junior', 'entry', 'intern'];
+    const seniorityLevels = seniorityLevelsData && seniorityLevelsData.length > 0 ? seniorityLevelsData : FALLBACK_SENIORITIES;
+    const SENIORITY_LABELS: Record<string, string> = {
+        c_suite: 'C-Suite',
+        founder_owner: 'Founder / Owner',
+        partner: 'Partner',
+        vp: 'VP',
+        head: 'Head',
+        director: 'Director',
+        manager: 'Manager',
+        senior: 'Senior',
+        lead: 'Lead',
+        junior: 'Junior',
+        entry: 'Entry Level',
+        intern: 'Intern',
+    };
+    const getSeniorityLabel = (v: string) => SENIORITY_LABELS[v] ?? v.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    const [seniorityOpen, setSeniorityOpen] = useState(false);
+    const [dropdownFilter, setDropdownFilter] = useState('');
+    const seniorityWrapRef = useRef<HTMLDivElement>(null);
+    const seniorityDropdownRef = useRef<HTMLDivElement>(null);
+    const [seniorityPos, setSeniorityPos] = useState<{ top: number; left: number; width: number } | null>(null);
+
+    const updateSeniorityPos = () => {
+        if (!seniorityWrapRef.current) return;
+        const rect = seniorityWrapRef.current.getBoundingClientRect();
+        setSeniorityPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+    };
+
+    useEffect(() => {
+        if (!seniorityOpen) return;
+        updateSeniorityPos();
+        const onReposition = () => updateSeniorityPos();
+        window.addEventListener('scroll', onReposition, true);
+        window.addEventListener('resize', onReposition);
+        return () => {
+            window.removeEventListener('scroll', onReposition, true);
+            window.removeEventListener('resize', onReposition);
+        };
+    }, [seniorityOpen]);
+
+    useEffect(() => {
+        if (seniorityOpen) setDropdownFilter('');
+    }, [seniorityOpen]);
+
+    useEffect(() => {
+        const onClickOutside = (e: MouseEvent) => {
+            const target = e.target as Node;
+            if (seniorityWrapRef.current && seniorityWrapRef.current.contains(target)) return;
+            if (seniorityDropdownRef.current && seniorityDropdownRef.current.contains(target)) return;
+            setSeniorityOpen(false);
+        };
+        document.addEventListener('mousedown', onClickOutside);
+        return () => document.removeEventListener('mousedown', onClickOutside);
+    }, []);
+
+    const filteredSeniorities = useMemo(() => {
+        const q = dropdownFilter.trim().toLowerCase();
+        if (!q) return seniorityLevels;
+        return seniorityLevels.filter((lvl) => lvl.toLowerCase().includes(q) || getSeniorityLabel(lvl).toLowerCase().includes(q));
+    }, [seniorityLevels, dropdownFilter]);
+
     const selectedCount = selected.size;
 
     const getCandidateId = (c: ContactCandidate, index?: number) =>
@@ -44,7 +110,7 @@ export const FindContactsModal: React.FC<FindContactsModalProps> = ({
 
     const handleSearch = async () => {
         if (!title.trim() && !seniority.trim()) {
-            toast.error('Enter a title or seniority level.');
+            toast.error('Enter a title or select a seniority level.');
             return;
         }
         try {
@@ -124,6 +190,8 @@ export const FindContactsModal: React.FC<FindContactsModalProps> = ({
         // Reset local state on close for next open
         setTitle('');
         setSeniority('');
+        setDropdownFilter('');
+        setSeniorityOpen(false);
         setCandidates([]);
         setSelected(new Set());
         setHasSearched(false);
@@ -142,7 +210,7 @@ export const FindContactsModal: React.FC<FindContactsModalProps> = ({
                     </p>
                 )}
 
-                {/* Filters — Title + Seniority Level as text inputs per spec */}
+                {/* Filters — Title (free text) + Seniority (searchable dropdown from /batches/seniority-levels) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <InputField
                         label="TITLE"
@@ -151,13 +219,114 @@ export const FindContactsModal: React.FC<FindContactsModalProps> = ({
                         onChange={(e) => setTitle(e.target.value)}
                         hint="Job title to search for"
                     />
-                    <InputField
-                        label="SENIORITY LEVEL"
-                        placeholder="e.g. c_suite, director, manager"
-                        value={seniority}
-                        onChange={(e) => setSeniority(e.target.value)}
-                        hint="Seniority level (e.g. c_suite, vp, director)"
-                    />
+                    <div className="flex flex-col gap-2 w-full" ref={seniorityWrapRef}>
+                        <label className="font-sans font-semibold text-xs leading-4 tracking-tight text-primary">
+                            SENIORITY LEVEL
+                        </label>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                updateSeniorityPos();
+                                setSeniorityOpen((o) => !o);
+                            }}
+                            className={`flex items-center justify-between w-full h-11 px-4 py-2.5 bg-bg-input border border-solid rounded-lg font-sans font-normal text-sm leading-5 tracking-tight text-left outline-none transition-[border-color,box-shadow] duration-150 ease-out ${seniorityOpen ? 'border-border-focus shadow-[0_0_0_3px_rgba(127,34,254,0.12)]' : 'border-border hover:border-border-light'} ${seniority ? 'text-fg-strong' : 'text-fg-muted'}`}
+                        >
+                            <span>{seniority ? getSeniorityLabel(seniority) : 'Select seniority...'}</span>
+                            <span className="flex items-center gap-1 shrink-0 ml-2">
+                                {seniority && (
+                                    <span
+                                        role="button"
+                                        tabIndex={0}
+                                        onMouseDown={(e) => e.preventDefault()}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSeniority('');
+                                            setDropdownFilter('');
+                                            setSeniorityOpen(false);
+                                        }}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                setSeniority('');
+                                                setDropdownFilter('');
+                                                setSeniorityOpen(false);
+                                            }
+                                        }}
+                                        className="p-1 rounded hover:bg-bg-muted text-fg-body hover:text-fg transition-colors"
+                                        title="Clear"
+                                    >
+                                        <FiX className="w-3.5 h-3.5" />
+                                    </span>
+                                )}
+                                <FiChevronDown className={`w-4 h-4 text-fg-body transition-transform ${seniorityOpen ? 'rotate-180' : ''}`} />
+                            </span>
+                        </button>
+                        <span className="font-sans font-normal text-xs leading-4 text-fg-muted mt-1">
+                            Pick from list only — searchable
+                        </span>
+                    </div>
+                    {seniorityOpen && seniorityPos && createPortal(
+                        <div
+                            ref={seniorityDropdownRef}
+                            style={{ top: seniorityPos.top, left: seniorityPos.left, width: seniorityPos.width, position: 'fixed', zIndex: 60 }}
+                            className="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl p-2 space-y-1.5 animate-[fadeIn_150ms_ease-out]"
+                        >
+                            {/* Search inside dropdown — filters allowed values */}
+                            <div className="relative">
+                                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
+                                </svg>
+                                <input
+                                    type="text"
+                                    autoFocus
+                                    value={dropdownFilter}
+                                    onChange={(e) => setDropdownFilter(e.target.value)}
+                                    placeholder="Type to filter allowed values..."
+                                    className="w-full bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 focus:border-indigo-500/50 outline-none rounded-lg pl-8 pr-3 py-1.5 text-xs font-semibold text-slate-900 dark:text-slate-100 placeholder-slate-400 transition-colors"
+                                />
+                            </div>
+                            <div className="max-h-48 overflow-y-auto space-y-0.5 custom-scrollbar pr-0.5">
+                                <button
+                                    type="button"
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    onClick={() => {
+                                        setSeniority('');
+                                        setDropdownFilter('');
+                                        setSeniorityOpen(false);
+                                    }}
+                                    className={`flex items-center justify-between w-full px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors hover:bg-indigo-50 dark:hover:bg-slate-800/80 ${!seniority ? 'bg-indigo-50 dark:bg-slate-800 text-indigo-700 dark:text-indigo-300' : 'text-slate-700 dark:text-slate-200'}`}
+                                >
+                                    <span>Any seniority</span>
+                                    {!seniority && <FiCheck className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />}
+                                </button>
+                                {filteredSeniorities.length === 0 ? (
+                                    <div className="px-3 py-2 text-xs text-slate-400">No matches — try another term</div>
+                                ) : (
+                                    filteredSeniorities.map((lvl) => {
+                                        const selected = seniority === lvl;
+                                        return (
+                                            <button
+                                                key={lvl}
+                                                type="button"
+                                                onMouseDown={(e) => e.preventDefault()}
+                                                onClick={() => {
+                                                    setSeniority(lvl);
+                                                    setDropdownFilter('');
+                                                    setSeniorityOpen(false);
+                                                }}
+                                                className={`flex items-center justify-between w-full px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors hover:bg-indigo-50 dark:hover:bg-slate-800/80 ${selected ? 'bg-indigo-50 dark:bg-slate-800 text-indigo-700 dark:text-indigo-300' : 'text-slate-700 dark:text-slate-200'}`}
+                                            >
+                                                <span>{getSeniorityLabel(lvl)}</span>
+                                                {selected && <FiCheck className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />}
+                                            </button>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        </div>,
+                        document.body
+                    )}
                 </div>
 
                 {/* Results */}

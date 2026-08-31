@@ -1,53 +1,72 @@
 import React from 'react';
 import { Card, InputField, TagInput } from '@/shared/components/ui';
+import { IcpChatAssistant } from '@/shared/components/icp/IcpChatAssistant';
+import { batchApi } from '@/shared/queries/batches/batchApi';
 import type { Icp } from '@/features/batches/types/batchTypes';
 
 interface IcpTabProps {
     data: Icp;
     onChange: (name: string, value: any) => void;
+    batchId?: string;
 }
 
-export const IcpTab: React.FC<IcpTabProps> = ({ data, onChange }) => {
+export const IcpTab: React.FC<IcpTabProps> = ({ data, onChange, batchId }) => {
+    const handleApply = (proposed: Record<string, unknown>) => {
+        Object.entries(proposed).forEach(([k, v]) => onChange(k, v));
+    };
+
     return (
-        <Card variant="elevated" className="flex flex-col gap-6">
-            <div className="flex flex-col gap-1">
-                <h3 className="font-sans font-semibold text-lg tracking-tight text-fg">Ideal Customer Profile (ICP)</h3>
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-fg-subtle">TARGET ACCOUNT PARAMETERS</span>
-            </div>
+        <div className="relative">
+            <Card variant="elevated" className="flex flex-col gap-6">
+                <div className="flex flex-col gap-1">
+                    <h3 className="font-sans font-semibold text-lg tracking-tight text-fg">Ideal Customer Profile (ICP)</h3>
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-fg-subtle">TARGET ACCOUNT PARAMETERS</span>
+                </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <InputField label="Target Profile Name" value={data.name || ''} onChange={(e) => onChange('name', e.target.value)} />
-            </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <InputField label="Target Profile Name" value={data.name || ''} onChange={(e) => onChange('name', e.target.value)} />
+                </div>
 
-            <div className="flex flex-col gap-2">
-                <label className="font-sans font-semibold text-xs tracking-tight text-primary">Strategic Summary</label>
-                <textarea
-                    className="flex items-start gap-3 w-full min-h-30 px-4 py-2.5 bg-bg-input border border-solid border-border rounded-lg font-sans font-normal text-sm text-fg-strong outline-none transition-[border-color,box-shadow] focus:border-border-focus focus:shadow-[0_0_0_3px_rgba(127,34,254,0.12)] resize-y"
-                    value={data.strategic_summary || ''}
-                    onChange={(e) => onChange('strategic_summary', e.target.value)}
-                    rows={3}
+                <div className="flex flex-col gap-2">
+                    <label className="font-sans font-semibold text-xs tracking-tight text-primary">Strategic Summary</label>
+                    <textarea
+                        className="flex items-start gap-3 w-full min-h-30 px-4 py-2.5 bg-bg-input border border-solid border-border rounded-lg font-sans font-normal text-sm text-fg-strong outline-none transition-[border-color,box-shadow] focus:border-border-focus focus:shadow-[0_0_0_3px_rgba(127,34,254,0.12)] resize-y"
+                        value={data.strategic_summary || ''}
+                        onChange={(e) => onChange('strategic_summary', e.target.value)}
+                        rows={3}
+                    />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <InputField label="Min Employees" type="number" value={data.min_employees || ''} onChange={(e) => onChange('min_employees', Number(e.target.value))} />
+                    <InputField label="Max Employees" type="number" value={data.max_employees || ''} onChange={(e) => onChange('max_employees', Number(e.target.value))} />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <InputField label="Min Revenue ($ Millions)" type="number" value={data.min_revenue || ''} onChange={(e) => onChange('min_revenue', Number(e.target.value))} />
+                    <InputField label="Max Revenue ($ Millions)" type="number" value={data.max_revenue || ''} onChange={(e) => onChange('max_revenue', Number(e.target.value))} />
+                </div>
+
+                <TagInput label="Target Industries" values={data.industries || []} onChange={(vals) => onChange('industries', vals)} />
+                <TagInput label="Target Geographies" values={data.geographies || []} onChange={(vals) => onChange('geographies', vals)} />
+                <TagInput label="Included Technologies" values={data.included_technologies || []} onChange={(vals) => onChange('included_technologies', vals)} />
+                <TagInput label="Funding Stages" values={data.funding_stages || []} onChange={(vals) => onChange('funding_stages', vals)} />
+                <TagInput label="Excluded Technologies" values={data.excluded_technologies || []} onChange={(vals) => onChange('excluded_technologies', vals)} />
+                <TagInput label="Hiring Signals" values={data.hiring_signals || []} onChange={(vals) => onChange('hiring_signals', vals)} />
+                <TagInput label="Intent Topics" values={data.intent_topics || []} onChange={(vals) => onChange('intent_topics', vals)} />
+                <TagInput label="Decision Maker Personas" values={data.decision_maker_roles || []} onChange={(vals) => onChange('decision_maker_roles', vals)} />
+                <TagInput label="Target Company Characteristics" values={data.company_characteristics || []} onChange={(vals) => onChange('company_characteristics', vals)} />
+            </Card>
+
+            {/* ICB Assistant — per-session chat, Apply updates form without API call, Save persists */}
+            {batchId && (
+                <IcpChatAssistant
+                    currentIcp={data as unknown as Record<string, unknown>}
+                    onApply={handleApply}
+                    chatFn={({ message, current_icp }) => batchApi.chatIcp(batchId, { message, current_icp })}
+                    title="ICB Assistant"
                 />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <InputField label="Min Employees" type="number" value={data.min_employees || ''} onChange={(e) => onChange('min_employees', Number(e.target.value))} />
-                <InputField label="Max Employees" type="number" value={data.max_employees || ''} onChange={(e) => onChange('max_employees', Number(e.target.value))} />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <InputField label="Min Revenue ($ Millions)" type="number" value={data.min_revenue || ''} onChange={(e) => onChange('min_revenue', Number(e.target.value))} />
-                <InputField label="Max Revenue ($ Millions)" type="number" value={data.max_revenue || ''} onChange={(e) => onChange('max_revenue', Number(e.target.value))} />
-            </div>
-
-            <TagInput label="Target Industries" values={data.industries || []} onChange={(vals) => onChange('industries', vals)} />
-            <TagInput label="Target Geographies" values={data.geographies || []} onChange={(vals) => onChange('geographies', vals)} />
-            <TagInput label="Included Technologies" values={data.included_technologies || []} onChange={(vals) => onChange('included_technologies', vals)} />
-            <TagInput label="Funding Stages" values={data.funding_stages || []} onChange={(vals) => onChange('funding_stages', vals)} />
-            <TagInput label="Excluded Technologies" values={data.excluded_technologies || []} onChange={(vals) => onChange('excluded_technologies', vals)} />
-            <TagInput label="Hiring Signals" values={data.hiring_signals || []} onChange={(vals) => onChange('hiring_signals', vals)} />
-            <TagInput label="Intent Topics" values={data.intent_topics || []} onChange={(vals) => onChange('intent_topics', vals)} />
-            <TagInput label="Decision Maker Personas" values={data.decision_maker_roles || []} onChange={(vals) => onChange('decision_maker_roles', vals)} />
-            <TagInput label="Target Company Characteristics" values={data.company_characteristics || []} onChange={(vals) => onChange('company_characteristics', vals)} />
-        </Card>
+            )}
+        </div>
     );
 };

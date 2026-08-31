@@ -1,6 +1,13 @@
 // Enums — synced with backend (Python str, Enum)
 export type BatchStatus = "Draft" | "Enriched" | "contacts fetched" | "emails drafted" | "outriched" | "Executed";
 export type BatchAccountStatus = "Best fit" | "likely match" | "poor" | "Ignored";
+export type AccountSource = "local" | "apollo";
+export type ContactSource = "apollo" | "signalhire";
+
+export interface BatchDatasources {
+  accounts: AccountSource[];
+  contacts: ContactSource[];
+}
 
 export interface ProductAnalysis {
   executive_summary?: string;
@@ -49,12 +56,21 @@ export interface Batch {
   icp?: Icp;
   accounts_count?: number; // Uses count instead of array
   max_results?: number;
+  account_source?: AccountSource;
+  contact_source?: ContactSource;
   cc_emails?: string[];
   bcc_emails?: string[];
   human_action_loop_emails?: string[];
   forward_emails?: string[]; // Plural
   enable_auto_followup?: boolean;
   followup_delay_days?: number;
+  reply_delay_enabled?: boolean;
+  reply_timezone?: string;
+  reply_working_days?: number[];
+  reply_working_hours_start?: string;
+  reply_working_hours_end?: string;
+  reply_base_delay_minutes?: number;
+  reply_delay_buffer_minutes?: number;
 }
 
 // Request shapes
@@ -62,12 +78,21 @@ export interface CreateBatchPayload {
   name: string;
   base_product_id?: string;
   max_results?: number;
+  account_source?: AccountSource;
+  contact_source?: ContactSource;
   cc_emails?: string[];
   bcc_emails?: string[];
   human_action_loop_emails?: string[];
   forward_emails?: string[];
   enable_auto_followup?: boolean;
   followup_delay_days?: number;
+  reply_delay_enabled?: boolean;
+  reply_timezone?: string;
+  reply_working_days?: number[];
+  reply_working_hours_start?: string;
+  reply_working_hours_end?: string;
+  reply_base_delay_minutes?: number;
+  reply_delay_buffer_minutes?: number;
 }
 
 export interface AddBatchAccountPayload {
@@ -155,6 +180,8 @@ export interface UpdateBatchPayload {
   status?: string;
   product_analysis?: ProductAnalysis;
   icp?: Icp;
+  account_source?: AccountSource;
+  contact_source?: ContactSource;
   cc_emails?: string[];
   bcc_emails?: string[];
   human_action_loop_emails?: string[];
@@ -162,6 +189,13 @@ export interface UpdateBatchPayload {
   enable_auto_followup?: boolean;
   followup_delay_days?: number;
   max_results?: number;
+  reply_delay_enabled?: boolean;
+  reply_timezone?: string;
+  reply_working_days?: number[];
+  reply_working_hours_start?: string;
+  reply_working_hours_end?: string;
+  reply_base_delay_minutes?: number;
+  reply_delay_buffer_minutes?: number;
 }
 
 export interface FindAccountsPayload {
@@ -172,12 +206,21 @@ export interface FindAccountsPayload {
   product_analysis?: ProductAnalysis;
   icp?: Icp;
   max_results?: number;
+  account_source?: AccountSource;
+  contact_source?: ContactSource;
   cc_emails?: string[];
   bcc_emails?: string[];
   human_action_loop_emails?: string[];
   forward_emails?: string[];
   enable_auto_followup?: boolean;
   followup_delay_days?: number;
+  reply_delay_enabled?: boolean;
+  reply_timezone?: string;
+  reply_working_days?: number[];
+  reply_working_hours_start?: string;
+  reply_working_hours_end?: string;
+  reply_base_delay_minutes?: number;
+  reply_delay_buffer_minutes?: number;
 }
 
 export interface FindBatchContactsPayload {

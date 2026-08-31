@@ -92,6 +92,13 @@ const BatchDetailPage: React.FC = () => {
             enable_auto_followup: formData.enable_auto_followup,
             followup_delay_days: formData.followup_delay_days != null ? Number(formData.followup_delay_days) : undefined,
             max_results: formData.max_results != null ? Number(formData.max_results) : undefined,
+            reply_delay_enabled: formData.reply_delay_enabled,
+            reply_timezone: formData.reply_timezone || undefined,
+            reply_working_days: formData.reply_working_days,
+            reply_working_hours_start: formData.reply_working_hours_start || undefined,
+            reply_working_hours_end: formData.reply_working_hours_end || undefined,
+            reply_base_delay_minutes: formData.reply_base_delay_minutes != null ? Number(formData.reply_base_delay_minutes) : undefined,
+            reply_delay_buffer_minutes: formData.reply_delay_buffer_minutes != null ? Number(formData.reply_delay_buffer_minutes) : undefined,
         };
 
         try {
@@ -224,6 +231,7 @@ const BatchDetailPage: React.FC = () => {
                     <IcpTab
                         data={formData.icp || {}}
                         onChange={(name, value) => handleNestedChange('icp', name, value)}
+                        batchId={formData.id}
                     />
                 )}
                 {activeTab === 'accounts' &&
