@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { WithNavbar } from '@/shared/components/hoc/WithNavbar';
-import { Button } from '@/shared/components/ui';
-import { FiArrowLeft } from 'react-icons/fi';
+import { Button, Modal } from '@/shared/components/ui';
+import { FiArrowLeft, FiTrash2 } from 'react-icons/fi';
 import { useBatch } from '@/features/batches/hooks/useBatch';
 import { useUpdateBatch } from '@/features/batches/hooks/useUpdateBatch';
 import { useCloneBatch } from '@/features/batches/hooks/useCloneBatch';
+import { useDeleteBatch } from '@/features/batches/hooks/useDeleteBatch';
 import { BatchOverviewTab } from '@/features/batches/components/tabs/BatchOverviewTab';
 import { ProductIntelligenceTab } from '@/features/batches/components/tabs/ProductIntelligenceTab';
 import { IcpTab } from '@/features/batches/components/tabs/IcpTab';
@@ -34,7 +35,9 @@ const BatchDetailPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
     const [formData, setFormData] = useState<Batch | null>(null);
     const [isCloneOpen, setIsCloneOpen] = useState(false);
+    const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const cloneBatch = useCloneBatch();
+    const deleteBatch = useDeleteBatch();
 
     // Sync local state when API data is loaded
     useEffect(() => {
@@ -92,6 +95,13 @@ const BatchDetailPage: React.FC = () => {
             enable_auto_followup: formData.enable_auto_followup,
             followup_delay_days: formData.followup_delay_days != null ? Number(formData.followup_delay_days) : undefined,
             max_results: formData.max_results != null ? Number(formData.max_results) : undefined,
+            reply_delay_enabled: formData.reply_delay_enabled,
+            reply_timezone: formData.reply_timezone || undefined,
+            reply_working_days: formData.reply_working_days,
+            reply_working_hours_start: formData.reply_working_hours_start || undefined,
+            reply_working_hours_end: formData.reply_working_hours_end || undefined,
+            reply_base_delay_minutes: formData.reply_base_delay_minutes != null ? Number(formData.reply_base_delay_minutes) : undefined,
+            reply_delay_buffer_minutes: formData.reply_delay_buffer_minutes != null ? Number(formData.reply_delay_buffer_minutes) : undefined,
         };
 
         try {
@@ -114,10 +124,23 @@ const BatchDetailPage: React.FC = () => {
         }
     };
 
+    const handleDelete = async () => {
+        if (!batchId) return;
+        try {
+            await deleteBatch.mutateAsync(batchId);
+            toast.success('Batch deleted');
+            setIsDeleteOpen(false);
+            navigate('/');
+        } catch (error) {
+            toast.error(getErrorMessage(error));
+        }
+    };
+
     const lowerStatus = (formData?.status || '').toLowerCase();
     const batchStep = getBatchStep(lowerStatus);
     // Only these statuses render the outreached accounts view inline on this page
     const isOutreached = batchStep === 'outreached';
+    const canDelete = batchStep !== 'outreached';
 
     // Access control: clicking Accounts routes to the step matching the batch status.
     // Deep-links (?tab=accounts) for intermediate statuses are redirected in the effect below.
@@ -174,13 +197,19 @@ const BatchDetailPage: React.FC = () => {
                         </p>
                     </div>
                 </div>
-                <div className="flex items-center gap-4 w-full sm:w-auto">
-                    <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsCloneOpen(true)}>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+                    {canDelete && (
+                        <Button variant="danger" className="w-full sm:w-auto max-w-none gap-2 justify-center" onClick={() => setIsDeleteOpen(true)} disabled={deleteBatch.isPending}>
+                            <FiTrash2 className="w-4 h-4" />
+                            Delete
+                        </Button>
+                    )}
+                    <Button variant="outline" className="w-full sm:w-auto max-w-none justify-center" onClick={() => setIsCloneOpen(true)}>
                         Clone
                     </Button>
                     <Button
                         variant="primary"
-                        className="w-full sm:w-auto"
+                        className="w-full sm:w-auto max-w-none justify-center"
                         onClick={handleSave}
                         isLoading={updateBatch.isPending}
                         disabled={updateBatch.isPending}
@@ -224,6 +253,7 @@ const BatchDetailPage: React.FC = () => {
                     <IcpTab
                         data={formData.icp || {}}
                         onChange={(name, value) => handleNestedChange('icp', name, value)}
+                        batchId={formData.id}
                     />
                 )}
                 {activeTab === 'accounts' &&
@@ -241,6 +271,22 @@ const BatchDetailPage: React.FC = () => {
                 onConfirm={handleClone}
                 isLoading={cloneBatch.isPending}
             />
+
+            <Modal isOpen={isDeleteOpen} onClose={() => setIsDeleteOpen(false)} title="Delete Batch">
+                <div className="flex flex-col gap-4">
+                    <p className="font-sans text-sm leading-5 text-fg-body">
+                        Are you sure you want to delete <span className="font-semibold text-fg">{formData.name}</span>? This will permanently remove the batch and all its dependent data. This cannot be undone.
+                    </p>
+                    <div className="flex justify-end gap-3 pt-2">
+                        <Button variant="ghost" onClick={() => setIsDeleteOpen(false)} disabled={deleteBatch.isPending}>
+                            Cancel
+                        </Button>
+                        <Button variant="danger" onClick={handleDelete} isLoading={deleteBatch.isPending} disabled={deleteBatch.isPending}>
+                            Delete Batch
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 };

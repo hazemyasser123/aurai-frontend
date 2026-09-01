@@ -18,3 +18,33 @@ export interface UserProfile {
   username: string;
   role: UserRole;
 }
+
+export interface User {
+  id: string;
+  username: string;
+  role: UserRole;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateUserPayload {
+  username: string;
+  password: string;
+  role?: UserRole;
+}
+
+export interface UpdateUserPayload {
+  role?: UserRole;
+  is_active?: boolean;
+  password?: string;
+}
+
+export interface UserResponse {
+  id: string;
+  username: string;
+  role: UserRole;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}

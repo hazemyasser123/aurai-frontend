@@ -40,6 +40,17 @@ export const createBatchSchema = z.object({
     .number()
     .min(1, "Must be at least 1 day")
     .default(5),
+
+  account_source: z.enum(["local", "apollo"]).default("apollo"),
+  contact_source: z.enum(["apollo", "signalhire"]).default("apollo"),
+
+  reply_delay_enabled: z.boolean().default(false),
+  reply_timezone: z.string().min(1, "Timezone is required").default("UTC"),
+  reply_working_days: z.array(z.number().min(0).max(6)).default([0, 1, 2, 3, 4, 5, 6]),
+  reply_working_hours_start: z.string().regex(/^\d{2}:\d{2}$/, "Use HH:MM").default("08:00"),
+  reply_working_hours_end: z.string().regex(/^\d{2}:\d{2}$/, "Use HH:MM").default("20:00"),
+  reply_base_delay_minutes: z.coerce.number().min(0).max(1440).default(60),
+  reply_delay_buffer_minutes: z.coerce.number().min(0).max(1440).default(20),
 });
 
 export type CreateBatchFormData = z.infer<typeof createBatchSchema>;

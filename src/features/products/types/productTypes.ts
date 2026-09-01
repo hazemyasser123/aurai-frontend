@@ -4,6 +4,9 @@ export interface Product {
   type?: string;
   description?: string | null;
   status?: string;
+  icon_url?: string | null;
+  logo_url?: string | null;
+  image_url?: string | null;
   created_at?: string;
   updated_at?: string;
 }

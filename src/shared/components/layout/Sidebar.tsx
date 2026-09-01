@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { FiGrid, FiSliders, FiFolder, FiLogOut, FiX, FiMessageSquare } from 'react-icons/fi';
+import { FiGrid, FiSliders, FiLogOut, FiX, FiMessageSquare, FiUsers } from 'react-icons/fi';
 import { useSelector, useDispatch } from 'react-redux';
 import type { RootState } from '@/shared/redux/store/store';
 import { logout } from '@/shared/redux/slices/authSlice';
@@ -38,13 +38,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         { name: 'Selling Products', icon: FiGrid, path: '/products' },
         { name: 'Outreach Batches', icon: FiSliders, path: '/' },
         { name: 'Conversations', icon: FiMessageSquare, path: '/conversations' },
-        { name: 'Account Pool', icon: FiFolder, path: '/accounts' },
     ];
     const isActive = (path: string) => {
         if (path === '/') return location.pathname === '/' || location.pathname.startsWith('/batches');
         if (path === '/conversations') return location.pathname.startsWith('/conversations');
         return location.pathname.startsWith(path);
     };
+
+    const isAdmin = user?.role === 'ADMIN';
 
     return (
         <>
@@ -90,6 +91,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                                 </NavLink>
                             );
                         })}
+                        {isAdmin && (
+                            <NavLink
+                                to="/users"
+                                onClick={onClose}
+                                className={`flex items-center gap-3 px-6 py-3 font-sans font-medium text-sm tracking-tight transition-colors ${isActive('/users') ? 'bg-bg-purple-soft text-fg' : 'text-fg-body hover:bg-bg-muted/50'
+                                    }`}
+                            >
+                                <FiUsers className="w-4.5 h-4.5" strokeWidth={1.5} />
+                                <span>Users</span>
+                            </NavLink>
+                        )}
                     </nav>
                 </div>
 

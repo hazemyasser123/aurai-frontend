@@ -151,7 +151,7 @@ const ProductWorkspacePage: React.FC = () => {
         ) : activeTab === 'intelligence' ? (
           <ProductIntelligencePanel data={analysisDraft} onChange={handleAnalysisChange} />
         ) : (
-          <IcpPanel data={icpDraft} onChange={handleIcpChange} />
+          <IcpPanel data={icpDraft} onChange={handleIcpChange} productId={productId} />
         )}
       </div>
     </div>

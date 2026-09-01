@@ -1,10 +1,13 @@
 import React from 'react';
 import { InputField, TagInput, Textarea } from '@/shared/components/ui';
+import { IcpChatAssistant } from '@/shared/components/icp/IcpChatAssistant';
+import { productApi } from '@/shared/queries/products/productApi';
 import type { ProductIcp } from '@/features/products/types/productTypes';
 
 interface Props {
   data: ProductIcp;
   onChange: (field: keyof ProductIcp, value: string | string[] | number | null) => void;
+  productId?: string;
 }
 
 const SectionCard: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className }) => (
@@ -13,9 +16,13 @@ const SectionCard: React.FC<{ children: React.ReactNode; className?: string }> =
   </div>
 );
 
-export const IcpPanel: React.FC<Props> = ({ data, onChange }) => {
+export const IcpPanel: React.FC<Props> = ({ data, onChange, productId }) => {
+  const handleApply = (proposed: Record<string, unknown>) => {
+    Object.entries(proposed).forEach(([k, v]) => onChange(k as keyof ProductIcp, v as never));
+  };
+
   return (
-    <div className="w-full max-w-[1120px] mx-auto bg-bg-sidebar border border-border rounded-xl shadow-sm p-4 sm:p-6 flex flex-col gap-6">
+    <div className="relative w-full max-w-[1120px] mx-auto bg-bg-sidebar border border-border rounded-xl shadow-sm p-4 sm:p-6 flex flex-col gap-6">
       <div className="flex flex-col gap-1">
         <h3 className="font-sans font-semibold text-lg tracking-tight text-fg">Ideal Customer Profile (ICP)</h3>
         <span className="font-sans font-semibold text-[10px] leading-3 tracking-widest text-fg-subtle uppercase">Target Account Parameters</span>
@@ -48,6 +55,15 @@ export const IcpPanel: React.FC<Props> = ({ data, onChange }) => {
           <TagInput label="Target Company Characteristics" values={data.company_characteristics || []} onChange={(v) => onChange('company_characteristics', v)} />
         </div>
       </SectionCard>
+
+      {productId && (
+        <IcpChatAssistant
+          currentIcp={data as unknown as Record<string, unknown>}
+          onApply={handleApply}
+          chatFn={({ message, current_icp }) => productApi.chatIcp(productId, { message, current_icp })}
+          title="ICB Assistant"
+        />
+      )}
     </div>
   );
 };

@@ -99,4 +99,27 @@ export const productApi = {
     const response = await systemApi.patch<ProductIcp>(`/products/${productId}/icp`, payload);
     return response.data;
   },
+
+  chatIcp: async (productId: string, payload: { message: string; current_icp: unknown }) => {
+    // Primary: product-scoped chat; fallback to batch endpoint if backend only implements batches
+    try {
+      const response = await systemApi.post<{
+        reply: string;
+        changed_fields: string[];
+        proposed_icp: Record<string, unknown>;
+      }>(`/products/${productId}/icp/chat`, payload);
+      return response.data;
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { status?: number } };
+      if (axiosErr.response?.status === 404 || axiosErr.response?.status === 405) {
+        const fallback = await systemApi.post<{
+          reply: string;
+          changed_fields: string[];
+          proposed_icp: Record<string, unknown>;
+        }>(`/batches/${productId}/icp/chat`, payload);
+        return fallback.data;
+      }
+      throw err;
+    }
+  },
 };
