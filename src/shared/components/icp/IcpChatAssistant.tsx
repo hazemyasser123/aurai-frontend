@@ -14,6 +14,8 @@ interface IcpChatAssistantProps {
   onApply: (proposed: Record<string, unknown>) => void;
   chatFn: (payload: { message: string; current_icp: unknown }) => Promise<ChatIcpResponse>;
   title?: string;
+  disabled?: boolean;
+  lockedHint?: string;
 }
 
 type ChatMessage =
@@ -301,7 +303,7 @@ const FieldDiffRow: React.FC<{
   );
 };
 
-export const IcpChatAssistant: React.FC<IcpChatAssistantProps> = ({ currentIcp, onApply, chatFn, title = 'ICB Assistant' }) => {
+export const IcpChatAssistant: React.FC<IcpChatAssistantProps> = ({ currentIcp, onApply, chatFn, title = 'ICB Assistant', disabled = false, lockedHint }) => {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -315,6 +317,7 @@ export const IcpChatAssistant: React.FC<IcpChatAssistantProps> = ({ currentIcp, 
   }, [messages, sending]);
 
   const handleSend = async () => {
+    if (disabled) return;
     const trimmed = input.trim();
     if (!trimmed || sending) return;
     const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: 'user', content: trimmed };
@@ -348,6 +351,7 @@ export const IcpChatAssistant: React.FC<IcpChatAssistantProps> = ({ currentIcp, 
   };
 
   const handleApplyField = (msgId: string, field: string, value: unknown) => {
+    if (disabled) return;
     onApply({ [field]: value });
     setMessages((prev) =>
       prev.map((m) => {
@@ -361,6 +365,7 @@ export const IcpChatAssistant: React.FC<IcpChatAssistantProps> = ({ currentIcp, 
   };
 
   const handleDeclineField = (msgId: string, field: string) => {
+    if (disabled) return;
     setMessages((prev) =>
       prev.map((m) => {
         if (m.id !== msgId || m.role !== 'assistant') return m;
@@ -376,14 +381,19 @@ export const IcpChatAssistant: React.FC<IcpChatAssistantProps> = ({ currentIcp, 
       {/* Floating chat icon — bottom right */}
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          if (disabled) return;
+          setOpen((v) => !v);
+        }}
         aria-label={open ? 'Close ICB Assistant' : 'Open ICB Assistant'}
-        className="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-primary text-white shadow-[0_8px_24px_rgba(127,34,254,0.35)] flex items-center justify-center hover:bg-primary-dark active:scale-[0.97] transition-[transform,background-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)]"
+        disabled={disabled}
+        title={disabled ? lockedHint : undefined}
+        className={`fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full shadow-[0_8px_24px_rgba(127,34,254,0.35)] flex items-center justify-center transition-[transform,background-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] ${disabled ? 'bg-bg-muted text-fg-muted cursor-not-allowed opacity-60' : 'bg-primary text-white hover:bg-primary-dark active:scale-[0.97]'}`}
       >
         {open ? <FiX className="w-6 h-6" /> : <FiMessageCircle className="w-6 h-6" />}
       </button>
 
-      {open && (
+      {open && !disabled && (
         <div className="fixed bottom-24 right-6 z-40 w-[min(420px,calc(100vw-32px))] h-[min(560px,calc(100vh-140px))] bg-bg-card border border-border rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.14)] flex flex-col overflow-hidden">
           {/* Header */}
           <div className="px-4 py-3 border-b border-border flex items-center justify-between bg-bg-sidebar">
@@ -452,25 +462,30 @@ export const IcpChatAssistant: React.FC<IcpChatAssistantProps> = ({ currentIcp, 
           </div>
 
           {/* Input */}
-          <div className="p-3 border-t border-border bg-bg-card flex items-center gap-2">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="I want to target customer support managers in Egypt"
-              disabled={sending}
-              className="flex-1 h-10 px-3 bg-bg-input border border-border rounded-full font-sans text-sm text-fg placeholder:text-fg-muted outline-none focus:border-border-focus focus:shadow-[0_0_0_3px_rgba(127,34,254,0.12)] disabled:opacity-60"
-            />
-            <button
-              type="button"
-              onClick={handleSend}
-              disabled={sending || !input.trim()}
-              className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.97] transition-all shrink-0"
-              aria-label="Send"
-            >
-              <FiSend className="w-4 h-4" />
-            </button>
+          <div className="p-3 border-t border-border bg-bg-card flex flex-col gap-2">
+            {disabled && lockedHint && (
+              <span className="font-sans text-xs text-fg-muted px-1">{lockedHint}</span>
+            )}
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={disabled ? 'Locked — editable only while Draft' : 'I want to target customer support managers in Egypt'}
+                disabled={sending || disabled}
+                className="flex-1 h-10 px-3 bg-bg-input border border-border rounded-full font-sans text-sm text-fg placeholder:text-fg-muted outline-none focus:border-border-focus focus:shadow-[0_0_0_3px_rgba(127,34,254,0.12)] disabled:opacity-60 disabled:cursor-not-allowed"
+              />
+              <button
+                type="button"
+                onClick={handleSend}
+                disabled={sending || !input.trim() || disabled}
+                className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.97] transition-all shrink-0"
+                aria-label="Send"
+              >
+                <FiSend className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -93,7 +93,8 @@ export const BatchOverviewTab: React.FC<BatchOverviewTabProps> = ({ formData, ha
                         name="account_source"
                         value={(formData.account_source as string) || 'apollo'}
                         onChange={handleChange}
-                        hint="Where accounts are sourced from"
+                        disabled={isLocked}
+                        hint={isLocked ? lockedHint : "Where accounts are sourced from"}
                     >
                         {accountSourceOptions.map((opt) => (
                             <option key={opt} value={opt}>
@@ -107,7 +108,8 @@ export const BatchOverviewTab: React.FC<BatchOverviewTabProps> = ({ formData, ha
                         name="contact_source"
                         value={(formData.contact_source as string) || 'apollo'}
                         onChange={handleChange}
-                        hint="Where contacts are sourced from"
+                        disabled={isLocked}
+                        hint={isLocked ? lockedHint : "Where contacts are sourced from"}
                     >
                         {contactSourceOptions.map((opt) => (
                             <option key={opt} value={opt}>

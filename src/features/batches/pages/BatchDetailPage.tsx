@@ -59,9 +59,35 @@ const BatchDetailPage: React.FC = () => {
         }
     }, [fetchedBatch, batchId, searchParams, navigate]);
 
-    // Handlers for form state
+    const lowerStatus = (formData?.status || '').toLowerCase();
+    const batchStep = getBatchStep(lowerStatus);
+    // Only these statuses render the outreached accounts view inline on this page
+    const isOutreached = batchStep === 'outreached';
+    const canDelete = batchStep !== 'outreached';
+    const isLocked = lowerStatus !== 'draft';
+    const lockedHint = isLocked ? `Locked because batch status is "${formData?.status}" (editable only while Draft).` : undefined;
+
+    // Fields that remain editable when batch is locked (Outreach Settings)
+    const OUTREACH_FIELD_SET = new Set([
+        'cc_emails',
+        'bcc_emails',
+        'human_action_loop_emails',
+        'forward_emails',
+        'enable_auto_followup',
+        'followup_delay_days',
+        'reply_delay_enabled',
+        'reply_timezone',
+        'reply_working_days',
+        'reply_working_hours_start',
+        'reply_working_hours_end',
+        'reply_base_delay_minutes',
+        'reply_delay_buffer_minutes',
+    ]);
+
+    // Handlers for form state — block non-outreach edits when locked
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
+        if (isLocked && !OUTREACH_FIELD_SET.has(name)) return;
         const checked = (e.target as HTMLInputElement).checked;
         setFormData(prev => prev ? ({
             ...prev,
@@ -70,6 +96,7 @@ const BatchDetailPage: React.FC = () => {
     };
 
     const handleNestedChange = (section: 'product_analysis' | 'icp', name: string, value: any) => {
+        if (isLocked) return;
         setFormData(prev => prev ? ({
             ...prev,
             [section]: {
@@ -135,12 +162,6 @@ const BatchDetailPage: React.FC = () => {
             toast.error(getErrorMessage(error));
         }
     };
-
-    const lowerStatus = (formData?.status || '').toLowerCase();
-    const batchStep = getBatchStep(lowerStatus);
-    // Only these statuses render the outreached accounts view inline on this page
-    const isOutreached = batchStep === 'outreached';
-    const canDelete = batchStep !== 'outreached';
 
     // Access control: clicking Accounts routes to the step matching the batch status.
     // Deep-links (?tab=accounts) for intermediate statuses are redirected in the effect below.
@@ -247,6 +268,8 @@ const BatchDetailPage: React.FC = () => {
                     <ProductIntelligenceTab
                         data={formData.product_analysis || {}}
                         onChange={(name, value) => handleNestedChange('product_analysis', name, value)}
+                        disabled={isLocked}
+                        lockedHint={lockedHint}
                     />
                 )}
                 {activeTab === 'icp' && (
@@ -254,6 +277,8 @@ const BatchDetailPage: React.FC = () => {
                         data={formData.icp || {}}
                         onChange={(name, value) => handleNestedChange('icp', name, value)}
                         batchId={formData.id}
+                        disabled={isLocked}
+                        lockedHint={lockedHint}
                     />
                 )}
                 {activeTab === 'accounts' &&

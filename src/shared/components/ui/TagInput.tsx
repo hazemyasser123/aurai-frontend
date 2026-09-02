@@ -10,12 +10,13 @@ interface TagInputProps {
     error?: string;
     /** When true, draft must be a valid email before the check button commits */
     validateAsEmail?: boolean;
+    disabled?: boolean;
 }
 
 const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
 export const TagInput: React.FC<TagInputProps> = ({
-    label, values = [], onChange, hint, error, validateAsEmail = false,
+    label, values = [], onChange, hint, error, validateAsEmail = false, disabled = false,
 }) => {
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
     const [draftValue, setDraftValue] = useState("");
@@ -30,6 +31,7 @@ export const TagInput: React.FC<TagInputProps> = ({
     }, [editingIndex]);
 
     const handleAddClick = () => {
+        if (disabled) return;
         // Add an empty string temporarily to hold the place in the UI
         const newValues = [...values, ""];
         onChange(newValues);
@@ -72,6 +74,7 @@ export const TagInput: React.FC<TagInputProps> = ({
     };
 
     const removeTag = (index: number) => {
+        if (disabled) return;
         onChange(values.filter((_, i) => i !== index));
     };
 
@@ -96,7 +99,7 @@ export const TagInput: React.FC<TagInputProps> = ({
                     {label}
                 </label>
             )}
-            <div className={`flex flex-wrap items-center gap-2 bg-bg-input border border-solid rounded-lg p-2 min-h-[44px] transition-[border-color,box-shadow] duration-150 ease-out focus-within:border-border-focus focus-within:shadow-[0_0_0_3px_rgba(127,34,254,0.12)] ${error ? 'border-danger' : 'border-border'}`}>
+            <div className={`flex flex-wrap items-center gap-2 border border-solid rounded-lg p-2 min-h-[44px] transition-[border-color,box-shadow] duration-150 ease-out ${disabled ? 'bg-bg-muted opacity-60 cursor-not-allowed' : 'bg-bg-input focus-within:border-border-focus focus-within:shadow-[0_0_0_3px_rgba(127,34,254,0.12)]'} ${error ? 'border-danger' : 'border-border'}`}>
                 {values.map((tag, index) => {
                     const isEditingThis = editingIndex === index;
                     const showInvalid = isEditingThis && !isDraftValid;
@@ -148,7 +151,8 @@ export const TagInput: React.FC<TagInputProps> = ({
                                 <button
                                     type="button"
                                     onClick={() => removeTag(index)}
-                                    className="text-fg-body hover:text-danger transition-colors ml-1"
+                                    disabled={disabled}
+                                    className={`ml-1 transition-colors ${disabled ? 'text-fg-muted cursor-not-allowed opacity-40' : 'text-fg-body hover:text-danger'}`}
                                 >
                                     <FiX className="w-3.5 h-3.5" />
                                 </button>
@@ -162,7 +166,8 @@ export const TagInput: React.FC<TagInputProps> = ({
                 <button
                     type="button"
                     onClick={handleAddClick}
-                    className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-primary border border-dashed border-border hover:bg-bg-page hover:border-primary transition-colors"
+                    disabled={disabled}
+                    className={`flex items-center gap-1.5 px-2 py-1.5 rounded-md border border-dashed transition-colors ${disabled ? 'text-fg-muted border-border opacity-40 cursor-not-allowed' : 'text-primary border-border hover:bg-bg-page hover:border-primary'}`}
                 >
                     <FiPlus className="w-3.5 h-3.5" />
                     <span className="font-sans font-semibold text-xs">Add</span>
