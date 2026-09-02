@@ -60,9 +60,9 @@ export const ConversationDetail: React.FC<Props> = ({ conversation: c, onBack })
   const prospectName = `${thread?.first_name ?? c.first_name} ${thread?.last_name ?? c.last_name}`.trim();
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-white border border-border rounded-xl overflow-hidden">
-      {/* Detail header */}
-      <div className="flex items-center justify-between gap-3 p-4 border-b border-border shrink-0">
+    <div className="flex flex-col bg-white border border-border rounded-xl overflow-hidden h-full min-h-0">
+      {/* Detail header — compact */}
+      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border shrink-0">
         <div className="flex items-center gap-3 min-w-0">
           {onBack && (
             <button onClick={onBack} className="lg:hidden p-1.5 rounded-md text-fg hover:bg-bg-muted transition-colors shrink-0">
@@ -114,8 +114,8 @@ export const ConversationDetail: React.FC<Props> = ({ conversation: c, onBack })
         </div>
       )}
 
-      {/* Chat history */}
-      <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:px-6 py-3 flex flex-col gap-5 bg-white">
+      {/* Chat history — flexes to fill, scrolls internally so reply bar stays pinned in viewport */}
+      <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:px-6 py-4 flex flex-col gap-4 bg-white">
         {loadingThread ? (
           <div className="flex items-center justify-center py-12">
             <div className="w-8 h-8 rounded-full border-4 border-border border-t-primary animate-spin" />
@@ -160,11 +160,14 @@ export const ConversationDetail: React.FC<Props> = ({ conversation: c, onBack })
         <textarea
           value={reply}
           onChange={(e) => setReply(e.target.value)}
-          placeholder="Type a reply..."
+          placeholder="Type a reply... (Enter to send, Shift+Enter for new line)"
           rows={2}
           className="w-full p-4 bg-bg-page border border-border rounded-md font-sans font-normal text-sm tracking-tight text-fg-strong outline-none resize-none placeholder:text-fg-muted focus:border-border-focus focus:shadow-[0_0_0_3px_rgba(127,34,254,0.12)] transition-[border-color,box-shadow] duration-150 ease-out"
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleSend();
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              handleSend();
+            }
           }}
         />
         <div className="flex justify-end">

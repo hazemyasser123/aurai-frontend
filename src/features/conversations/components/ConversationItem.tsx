@@ -13,10 +13,10 @@ export const ConversationItem: React.FC<Props> = ({ conversation: c, isActive, o
   const statusBadge = getStatusBadge(c.status);
   const classBadge = getClassificationBadge(c.classification);
 
-  return (
+    return (
     <button
       onClick={onSelect}
-      className={`relative w-full text-left p-4 flex gap-3 items-start transition-colors duration-150 ease-out border-l-4 ${
+      className={`relative w-full text-left px-3 py-3 flex gap-2.5 items-start transition-colors duration-150 ease-out border-l-4 ${
         isActive
           ? 'bg-bg-sidebar border-l-primary'
           : 'bg-transparent border-l-transparent hover:bg-bg-page'
@@ -24,39 +24,39 @@ export const ConversationItem: React.FC<Props> = ({ conversation: c, isActive, o
     >
       {/* Unread / needs-action dot */}
       {c.needs_human_action && (
-        <span className="absolute right-4 top-4 w-2 h-2 rounded-full bg-danger" />
+        <span className="absolute right-3 top-3 w-2 h-2 rounded-full bg-danger" />
       )}
 
       {c.photo_url ? (
-        <img src={c.photo_url} alt={c.first_name} className="w-10 h-10 rounded-full object-cover bg-bg-purple-50 shrink-0" />
+        <img src={c.photo_url} alt={c.first_name} className="w-8 h-8 rounded-full object-cover bg-bg-purple-50 shrink-0" />
       ) : (
-        <div className="w-10 h-10 rounded-full bg-bg-purple-50 flex items-center justify-center font-semibold text-primary text-xs shrink-0">
+        <div className="w-8 h-8 rounded-full bg-bg-purple-50 flex items-center justify-center font-semibold text-primary text-[11px] shrink-0">
           {initials}
         </div>
       )}
 
       <div className="flex flex-col min-w-0 flex-1 gap-0.5">
-        <span className="font-sans font-semibold text-base leading-6 tracking-tight text-fg truncate">
+        <span className="font-sans font-semibold text-sm leading-5 tracking-tight text-fg truncate">
           {c.first_name} {c.last_name}
         </span>
-        <span className="font-sans font-medium text-xs leading-4 tracking-tight text-fg-medium truncate">
+        <span className="font-sans font-normal text-xs leading-4 tracking-tight text-fg-medium truncate">
           {c.batch_name || c.account_name || '—'}
         </span>
 
-        <div className="flex flex-wrap gap-2 pt-2">
+        <div className="flex flex-wrap gap-1.5 pt-1.5">
           {statusBadge && (
-            <span className={`inline-flex items-center justify-center px-3 py-1 rounded-full font-sans font-medium text-xs leading-4 whitespace-nowrap ${statusBadge.className}`}>
+            <span className={`inline-flex items-center justify-center px-2.5 py-1 rounded-full font-sans font-medium text-[11px] leading-3 whitespace-nowrap ${statusBadge.className}`}>
               {statusBadge.label}
             </span>
           )}
           {classBadge && (
-            <span className={`inline-flex items-center justify-center px-3 py-1 rounded-full font-sans font-medium text-xs leading-4 whitespace-nowrap ${classBadge.className}`}>
+            <span className={`inline-flex items-center justify-center px-2.5 py-1 rounded-full font-sans font-medium text-[11px] leading-3 whitespace-nowrap ${classBadge.className}`}>
               {classBadge.label}
             </span>
           )}
         </div>
 
-        <p className="font-sans font-normal text-xs leading-4 tracking-tight text-fg-medium truncate pt-2">
+        <p className="font-sans font-normal text-xs leading-4 tracking-tight text-fg-medium truncate pt-1.5">
           {c.subject || '—'}
         </p>
       </div>

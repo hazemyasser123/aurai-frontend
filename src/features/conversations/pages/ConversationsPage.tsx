@@ -95,18 +95,17 @@ const ConversationsPage: React.FC = () => {
       {/* Filter chips */}
       <ConversationFilters active={filter} counts={counts} onChange={setFilter} />
 
-      {/* Workspace area: list + detail — fixed viewport-bound height so both
-          columns scroll internally instead of being cropped by the page flow */}
+      {/* Workspace area — fits viewport so reply bar is always visible */}
       {isLoading ? (
-        <div className="grid grid-cols-1 lg:grid-cols-[325px_1fr] gap-4 lg:h-[calc(100vh-250px)]">
+        <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-4 lg:h-[calc(100vh-140px)] lg:items-stretch">
           <div className="h-[400px] lg:h-full bg-bg-sidebar border border-border rounded-xl animate-pulse" />
           <div className="h-[600px] lg:h-full bg-bg-card border border-border rounded-xl animate-pulse" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-[325px_1fr] gap-4 items-stretch lg:h-[calc(100vh-250px)]">
-          {/* Conversation List */}
+        <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-4 lg:h-[calc(100vh-140px)] lg:items-stretch">
+          {/* Conversation List — full viewport height, scrolls internally */}
           <div
-            className={`bg-bg-sidebar border border-border rounded-xl shadow-card overflow-y-auto min-h-0 max-h-[65vh] lg:max-h-none lg:h-full ${
+            className={`bg-bg-sidebar border border-border rounded-xl shadow-card overflow-y-auto max-h-[60vh] lg:max-h-none lg:h-full ${
               selectedStillVisible ? 'hidden lg:block' : ''
             }`}
           >
@@ -127,12 +126,12 @@ const ConversationsPage: React.FC = () => {
             )}
           </div>
 
-          {/* Detail Column */}
-          <div className={`${selectedStillVisible ? '' : 'hidden lg:block'} min-h-[500px] lg:min-h-0 lg:h-full`}>
+          {/* Detail Column — fills viewport, internal scroll keeps reply bar pinned */}
+          <div className={`${selectedStillVisible ? '' : 'hidden lg:block'} min-h-[520px] lg:min-h-0 lg:h-full lg:flex lg:flex-col`}>
             {selectedStillVisible ? (
               <ConversationDetail conversation={selectedStillVisible} onBack={() => setSelected(null)} />
             ) : (
-              <div className="h-full bg-bg-card border border-border rounded-xl flex items-center justify-center min-h-[400px]">
+              <div className="bg-bg-card border border-border rounded-xl flex items-center justify-center min-h-[520px] lg:h-full">
                 <p className="font-sans text-sm text-fg-body">Select a conversation to view it</p>
               </div>
             )}

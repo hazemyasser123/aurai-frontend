@@ -18,6 +18,7 @@ import ProductWorkspacePage from '@/features/products/pages/ProductWorkspacePage
 import ProductAnalyzePlaceholderPage from '@/features/products/pages/ProductAnalyzePlaceholderPage';
 import ConversationsPage from '@/features/conversations/pages/ConversationsPage';
 import { UsersPage } from '@/features/users/pages/UsersPage';
+import PromptLabPage from '@/features/prompt-lab/pages/PromptLabPage';
 
 // Define the shape of our route objects
 export interface AppRoute {
@@ -47,6 +48,7 @@ export const AppRoutes: AppRoute[] = [
     { path: '/batches/:batchId/draft', Component: DraftMessagesPage, protected: true },
     { path: '/conversations', Component: ConversationsPage, protected: true },
     { path: '/users', Component: UsersPage, protected: true, allowedRoles: ['ADMIN'] },
+    { path: '/prompt-lab', Component: PromptLabPage, protected: true, allowedRoles: ['ADMIN'] },
     // Example protected route:
     // { path: '/users', Component: UsersListPage, protected: true, allowedRoles: ['ADMIN'] }
 ];

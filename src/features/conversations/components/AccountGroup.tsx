@@ -27,33 +27,33 @@ export const AccountGroup: React.FC<Props> = ({
 
   return (
     <div className="border-b border-border last:border-b-0">
-      {/* Account group header */}
+      {/* Account group header — compact to save vertical space */}
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-3 w-full p-4 border-b border-border text-left hover:bg-bg-page transition-colors duration-150 ease-out"
+        className="flex items-center gap-2.5 w-full p-3 border-b border-border text-left hover:bg-bg-page transition-colors duration-150 ease-out"
       >
         {logoUrl ? (
-          <img src={logoUrl} alt={accountName} className="w-14 h-14 rounded-xl object-cover bg-bg-purple-50 shrink-0" />
+          <img src={logoUrl} alt={accountName} className="w-9 h-9 rounded-lg object-cover bg-bg-purple-50 shrink-0" />
         ) : (
-          <div className="w-14 h-14 rounded-xl bg-bg-purple-50 flex items-center justify-center font-bold text-primary shrink-0">
+          <div className="w-9 h-9 rounded-lg bg-bg-purple-50 flex items-center justify-center font-bold text-primary text-sm shrink-0">
             {initials}
           </div>
         )}
-        <div className="flex flex-col min-w-0 flex-1 gap-1">
-          <div className="flex items-center gap-2">
-            <span className="font-sans font-semibold text-lg leading-[26px] tracking-tight text-fg truncate">{accountName}</span>
-            <span className="inline-flex items-center justify-center px-1.5 min-w-[18px] h-4 rounded-full bg-bg-purple-50 font-sans font-normal text-xs text-primary shrink-0">
+        <div className="flex flex-col min-w-0 flex-1 gap-0.5">
+          <div className="flex items-center gap-1.5">
+            <span className="font-sans font-semibold text-sm leading-5 tracking-tight text-fg truncate">{accountName}</span>
+            <span className="inline-flex items-center justify-center px-1.5 min-w-[18px] h-4 rounded-full bg-bg-purple-50 font-sans font-medium text-xs text-primary shrink-0">
               {conversations.length}
             </span>
           </div>
-          <span className="font-sans font-medium text-sm leading-5 tracking-tight text-fg-body truncate">
+          <span className="font-sans font-normal text-xs leading-4 tracking-tight text-fg-body truncate">
             {accountDomain || '—'}
           </span>
         </div>
         {open ? (
-          <FiChevronUp className="w-[18px] h-[18px] text-fg shrink-0" />
+          <FiChevronUp className="w-4 h-4 text-fg-muted shrink-0" />
         ) : (
-          <FiChevronDown className="w-[18px] h-[18px] text-fg shrink-0" />
+          <FiChevronDown className="w-4 h-4 text-fg-muted shrink-0" />
         )}
       </button>
 
