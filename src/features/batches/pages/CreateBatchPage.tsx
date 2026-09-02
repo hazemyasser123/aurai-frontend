@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { WithNavbar } from '@/shared/components/hoc/WithNavbar';
 import { Button, Card, InputField, Select, Textarea } from '@/shared/components/ui';
@@ -16,9 +16,6 @@ const CreateBatchPage: React.FC = () => {
 
     const { data: products, isLoading: isLoadingProducts, isError: isProductsError, error: productsError } = useProducts();
     const { data: datasources } = useBatchDatasources();
-
-    const accountSourceOptions = (datasources?.accounts as string[] | undefined) ?? ['local', 'apollo'];
-    const contactSourceOptions = (datasources?.contacts as string[] | undefined) ?? ['apollo', 'signalhire'];
 
     useEffect(() => {
         if (isProductsError) {
@@ -49,6 +46,20 @@ const CreateBatchPage: React.FC = () => {
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
+
+    const accountSourceOptions = useMemo(() => {
+        const base = datasources?.accounts ?? [];
+        const current = formData.account_source;
+        if (current && !base.includes(current)) return [current, ...base];
+        return base;
+    }, [datasources?.accounts, formData.account_source]);
+
+    const contactSourceOptions = useMemo(() => {
+        const base = datasources?.contacts ?? [];
+        const current = formData.contact_source;
+        if (current && !base.includes(current)) return [current, ...base];
+        return base;
+    }, [datasources?.contacts, formData.contact_source]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;

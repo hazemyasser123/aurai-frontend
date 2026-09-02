@@ -1,4 +1,5 @@
 import React from 'react';
+import { FiCheckCircle, FiClock, FiXCircle } from 'react-icons/fi';
 
 interface Props {
   total: number;
@@ -16,34 +17,40 @@ const SliderVerticalIcon: React.FC<{ className?: string }> = ({ className }) => 
 );
 
 export const ProductsStatsGrid: React.FC<Props> = ({ total, ready, processing, failed }) => {
-  const cards = [
+  const cards: Array<{
+    label: string;
+    value: number;
+    iconBg: string;
+    iconColor: string;
+    icon: React.ReactNode;
+  }> = [
     {
       label: 'Total Products',
       value: total,
-      bg: 'bg-bg-purple-50',
       iconBg: 'bg-bg-purple-50',
       iconColor: 'text-primary',
+      icon: <SliderVerticalIcon className="w-6 h-6 text-primary" />,
     },
     {
       label: 'AI Engines Ready',
       value: ready,
-      bg: 'bg-[#F0FDF4]',
       iconBg: 'bg-[#F0FDF4]',
       iconColor: 'text-success',
+      icon: <FiCheckCircle className="w-6 h-6 text-success" strokeWidth={1.8} />,
     },
     {
       label: 'Processing',
       value: processing,
-      bg: 'bg-[#FEFCE8]',
       iconBg: 'bg-[#FEFCE8]',
       iconColor: 'text-warning',
+      icon: <FiClock className="w-6 h-6 text-warning" strokeWidth={1.8} />,
     },
     {
       label: 'Failed Analysis',
       value: failed,
-      bg: 'bg-[#FEF2F2]',
       iconBg: 'bg-[#FEF2F2]',
       iconColor: 'text-danger',
+      icon: <FiXCircle className="w-6 h-6 text-danger" strokeWidth={1.8} />,
     },
   ];
 
@@ -51,9 +58,7 @@ export const ProductsStatsGrid: React.FC<Props> = ({ total, ready, processing, f
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
       {cards.map((c) => (
         <div key={c.label} className="bg-bg-sidebar border border-border rounded-xl p-4 sm:p-6 flex flex-row justify-between items-center h-[92px] min-w-0">
-          <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${c.iconBg}`}>
-            <SliderVerticalIcon className={`w-6 h-6 ${c.iconColor}`} />
-          </div>
+          <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${c.iconBg}`}>{c.icon}</div>
           <div className="flex flex-col items-end gap-0">
             <span className="font-sans font-semibold text-xs tracking-tight text-fg-body text-right">{c.label}</span>
             <span className="font-sans font-semibold text-lg leading-6 tracking-tight text-fg text-right">{c.value}</span>

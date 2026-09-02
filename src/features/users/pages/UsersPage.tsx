@@ -154,15 +154,6 @@ const UsersPageContent: React.FC = () => {
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex items-center justify-end gap-2">
-                                                    <Button
-                                                        variant="ghost"
-                                                        onClick={() => handleOpenEditModal(user)}
-                                                        disabled={isRowBusy}
-                                                        isLoading={updateUserMutation.isPending}
-                                                        className="text-xs px-3 py-1.5 min-w-[70px] h-8"
-                                                    >
-                                                        Edit
-                                                    </Button>
                                                     {!isSelf && (
                                                         <Button
                                                             variant="ghost"
@@ -174,6 +165,15 @@ const UsersPageContent: React.FC = () => {
                                                             {user.is_active ? 'Disable' : 'Enable'}
                                                         </Button>
                                                     )}
+                                                    <Button
+                                                        variant="ghost"
+                                                        onClick={() => handleOpenEditModal(user)}
+                                                        disabled={isRowBusy}
+                                                        isLoading={updateUserMutation.isPending}
+                                                        className="text-xs px-3 py-1.5 min-w-[70px] h-8"
+                                                    >
+                                                        Edit
+                                                    </Button>
                                                 </div>
                                             </td>
                                         </tr>

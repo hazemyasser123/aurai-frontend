@@ -277,50 +277,108 @@ export const batchApi = {
       `/outreach/conversations/${conversationId}/thread`,
     );
     const data = response.data as Record<string, unknown>;
+    // Legacy nested shape vs new flat Graph shape
     const contact = (data?.contact && typeof data.contact === 'object' ? data.contact : {}) as Record<string, unknown>;
     const account = (data?.account && typeof data.account === 'object' ? data.account : {}) as Record<string, unknown>;
     const email = (data?.email && typeof data.email === 'object' ? data.email : null) as Record<string, unknown> | null;
     const rawMessages = Array.isArray(data?.messages) ? (data!.messages as unknown[]) : [];
 
+    const id = String((data?.conversation_id as string) ?? (data?.id as string) ?? conversationId);
+    const subject = (data?.subject as string) ?? (email?.subject as string) ?? '';
+
+    // Normalize Graph messages (new) and legacy messages first so we can synthesize email if needed
+    let messages: OutreachMessage[] = rawMessages.map((m) => {
+      const msg = m as Record<string, unknown>;
+      const directionRaw = (msg.direction as string) ?? 'inbound';
+      const occurred = (msg.occurred_at as string) ?? (msg.created_at as string) ?? (msg.occurredAt as string) ?? undefined;
+      const display = (msg.display_text as string) ?? (msg.body_text as string) ?? (msg.body as string) ?? '';
+      const html = (msg.body_html as string) ?? (msg.bodyHtml as string) ?? '';
+      const body = display || html || (msg.body as string) || '';
+      return {
+        id: (msg.graph_message_id as string) ?? (msg.id as string) ?? undefined,
+        graph_message_id: msg.graph_message_id as string | undefined,
+        conversation_id: (msg.conversation_id as string) ?? id,
+        direction: directionRaw,
+        sender: (msg.sender as string) ?? (msg.from_address as string) ?? undefined,
+        from_address: msg.from_address as string | undefined,
+        to_addresses: msg.to_addresses as string[] | undefined,
+        cc_addresses: msg.cc_addresses as string[] | undefined,
+        bcc_addresses: msg.bcc_addresses as string[] | undefined,
+        display_text: msg.display_text as string | undefined,
+        body,
+        body_text: msg.body_text as string | null | undefined,
+        bodyText: display,
+        body_html: msg.body_html as string | null | undefined,
+        bodyHtml: html,
+        created_at: occurred,
+        occurred_at: msg.occurred_at as string | undefined,
+        occurredAt: msg.occurred_at as string | undefined,
+        attachments: msg.attachments as unknown[] | undefined,
+        is_ndr: msg.is_ndr as boolean | undefined,
+        is_forward: msg.is_forward as boolean | undefined,
+        is_system_notification: msg.is_system_notification as boolean | undefined,
+      } as OutreachMessage;
+    });
+
+    let normalizedEmail: OutreachThread['email'] = email
+      ? {
+          id: email.id as string | undefined,
+          subject: (email.subject as string) ?? subject,
+          body: (email.body as string) ?? '',
+          sent_at: (email.sent_at as string | null) ?? null,
+        }
+      : null;
+
+    // If no email object but we have subject + first outbound, synthesize email for UI that expects it
+    // and exclude that message from bubbles to avoid duplicate (email card + bubble)
+    if (!normalizedEmail && subject && messages.length > 0) {
+      const firstOutboundIdx = messages.findIndex((mm) => (mm.direction || '').toLowerCase().includes('out'));
+      if (firstOutboundIdx !== -1) {
+        const firstOutbound = messages[firstOutboundIdx];
+        const outboundBodyHtml = firstOutbound.body_html || firstOutbound.bodyHtml || '';
+        const outboundBodyText = firstOutbound.display_text || firstOutbound.body_text || firstOutbound.body || '';
+        // Prefer HTML for rendering (keeps signature tables), fallback to text
+        const emailBody = outboundBodyHtml || outboundBodyText;
+        const outboundAt = firstOutbound.occurred_at || firstOutbound.created_at || null;
+        normalizedEmail = {
+          subject,
+          body: emailBody,
+          sent_at: outboundAt as string | null,
+        };
+        // Remove the original from bubbles — it will be shown as the email card
+        messages = messages.filter((_, idx) => idx !== firstOutboundIdx);
+      } else if (subject) {
+        normalizedEmail = { subject, body: '', sent_at: null };
+      }
+    }
+
     return {
-      id: String(data?.id ?? conversationId),
-      conversation_id: String(data?.id ?? conversationId),
+      id,
+      conversation_id: id,
+      external_thread_id: (data?.external_thread_id as string) ?? undefined,
       email_id: (data?.email_id as string) ?? undefined,
       batch_id: (data?.batch_id as string) ?? undefined,
       contact_id: String(data?.contact_id ?? contact.id ?? ''),
       account_id: String(data?.account_id ?? account.id ?? ''),
       status: (data?.status as string) ?? '',
+      subject,
+      recipient_email: ((data?.recipient_email ?? contact.primary_email) ?? null) as string | null,
+      classification: (data?.classification as string) ?? undefined,
       needs_human_action: !!data?.needs_human_action,
-      human_action_reason: data?.human_action_reason as string | undefined,
-      // Flatten nested contact
+      human_action_reason: (data?.human_action_reason as string | null) ?? undefined,
+      needs_followup: (data?.needs_followup as boolean) ?? undefined,
+      pending_reply_content: (data?.pending_reply_content as string | null) ?? undefined,
+      pending_reply_scheduled_at: (data?.pending_reply_scheduled_at as string | null) ?? undefined,
+      // Flatten nested contact / keep flat fields
       first_name: ((data?.first_name ?? contact.first_name) ?? '') as string,
       last_name: ((data?.last_name ?? contact.last_name) ?? '') as string,
       title: ((data?.title ?? contact.title) ?? '') as string,
       photo_url: ((data?.photo_url ?? contact.photo_url) ?? null) as string | null,
-      recipient_email: ((contact.primary_email ?? data?.recipient_email) ?? null) as string | null,
       account_name: ((data?.account_name ?? contact.account_name ?? account.name) ?? '') as string,
       account_domain: ((data?.account_domain ?? contact.account_domain ?? account.domain) ?? '') as string,
       account_logo_url: (account.logo_url ?? null) as string | null,
-      // Original cold email that started the thread
-      email: email
-        ? {
-            id: email.id as string | undefined,
-            subject: (email.subject as string) ?? '',
-            body: (email.body as string) ?? '',
-            sent_at: (email.sent_at as string | null) ?? null,
-          }
-        : null,
-      // Normalize messages to a common shape (body / direction / created_at)
-      messages: rawMessages.map((m) => {
-        const msg = m as Record<string, unknown>;
-        return {
-          id: msg.id as string | undefined,
-          direction: (msg.direction as string) ?? 'inbound',
-          sender: msg.sender as string | undefined,
-          body: (msg.body ?? msg.bodyText ?? msg.bodyHtml ?? '') as string,
-          created_at: (msg.created_at ?? msg.occurredAt) as string | undefined,
-        };
-      }),
+      email: normalizedEmail,
+      messages,
     } as OutreachThread;
   },
 
@@ -354,6 +412,30 @@ export const batchApi = {
       `/outreach/conversations/${conversationId}/resolve`,
     );
     return response.data;
+  },
+
+  // Trigger a follow-up for a conversation where needs_followup is true
+  sendFollowup: async (conversationId: string) => {
+    const endpoints = [
+      `/outreach/conversations/${conversationId}/followup`,
+      `/outreach/conversations/${conversationId}/send-followup`,
+      `/outreach/conversations/${conversationId}/follow-up`,
+    ];
+    let lastErr: unknown = null;
+    for (const url of endpoints) {
+      try {
+        const response = await systemApi.post<OutreachConversation>(url, {});
+        return response.data;
+      } catch (err) {
+        const axiosErr = err as { response?: { status?: number } };
+        if (axiosErr.response?.status === 404 || axiosErr.response?.status === 405) {
+          lastErr = err;
+          continue;
+        }
+        throw err;
+      }
+    }
+    throw lastErr;
   },
 
   chatIcp: async (batchId: string, payload: { message: string; current_icp: unknown }) => {

@@ -41,8 +41,8 @@ export const createBatchSchema = z.object({
     .min(1, "Must be at least 1 day")
     .default(5),
 
-  account_source: z.enum(["local", "apollo"]).default("apollo"),
-  contact_source: z.enum(["apollo", "signalhire"]).default("apollo"),
+  account_source: z.string().min(1, "Account source is required").default("apollo"),
+  contact_source: z.string().min(1, "Contact source is required").default("apollo"),
 
   reply_delay_enabled: z.boolean().default(false),
   reply_timezone: z.string().min(1, "Timezone is required").default("UTC"),

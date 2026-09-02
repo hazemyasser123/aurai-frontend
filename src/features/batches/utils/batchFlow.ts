@@ -1,10 +1,12 @@
 // Central batch lifecycle flow — maps BatchStatus to the step the user should be on
-// Flow: Draft -> Enriched -> contacts fetched -> emails drafted -> outriched/Executed
-export type BatchFlowStep = 'explore' | 'enrich' | 'contacts' | 'draft' | 'outreached';
+// Correct flow per backend: Draft -> Executed (accounts found) -> Enriched -> contacts fetched -> emails drafted -> outriched/outreached (final)
+export type BatchFlowStep = 'explore' | 'executed' | 'enrich' | 'contacts' | 'draft' | 'outreached';
 
 export function getBatchStep(status?: string | null): BatchFlowStep {
     const s = (status || '').toLowerCase();
     switch (s) {
+        case 'executed':
+            return 'executed';
         case 'enriched':
             return 'enrich';
         case 'contacts fetched':
@@ -13,7 +15,6 @@ export function getBatchStep(status?: string | null): BatchFlowStep {
             return 'draft';
         case 'outriched':
         case 'outreached':
-        case 'executed':
             return 'outreached';
         case 'draft':
         default:
@@ -21,8 +22,22 @@ export function getBatchStep(status?: string | null): BatchFlowStep {
     }
 }
 
+export const STEP_ORDER: BatchFlowStep[] = ['explore', 'executed', 'enrich', 'contacts', 'draft', 'outreached'];
+
+export function getStepIndex(step: BatchFlowStep): number {
+    return STEP_ORDER.indexOf(step);
+}
+
+/** True if current status is at or past the required step — allows viewing past pages without redirect */
+export function isStepAtLeast(currentStatus: string | null | undefined, requiredStep: BatchFlowStep): boolean {
+    return getStepIndex(getBatchStep(currentStatus)) >= getStepIndex(requiredStep);
+}
+
 export function getStepRoute(batchId: string, step: BatchFlowStep): string {
     switch (step) {
+        case 'executed':
+            // Executed = explored accounts found (right after Draft) — show explored accounts
+            return `/batches/${batchId}/accounts`;
         case 'enrich':
             return `/batches/${batchId}/accounts/enrich`;
         case 'contacts':

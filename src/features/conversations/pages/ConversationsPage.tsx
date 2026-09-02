@@ -76,12 +76,12 @@ const ConversationsPage: React.FC = () => {
       : null;
 
   return (
-    <div className="w-full pb-8 sm:pb-12 max-w-[1120px] mx-auto flex flex-col gap-6">
-      {/* Hero Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4">
-        <div className="flex flex-col gap-1 min-w-0">
-          <h2 className="font-sans font-bold text-xl sm:text-2xl tracking-tight text-fg">Conversations</h2>
-          <p className="font-sans font-medium text-sm text-fg-body">
+    <div className="w-full max-w-[1120px] mx-auto flex flex-col gap-3 flex-1 min-h-0">
+      {/* Hero Header — ultra-compact to give max to chat */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-2 shrink-0">
+        <div className="flex flex-col gap-0 min-w-0">
+          <h2 className="font-sans font-bold text-lg sm:text-xl tracking-tight text-fg">Conversations</h2>
+          <p className="font-sans font-medium text-xs text-fg-body">
             {counts.all} conversation(s) across all batches
           </p>
         </div>
@@ -92,20 +92,22 @@ const ConversationsPage: React.FC = () => {
         />
       </div>
 
-      {/* Filter chips */}
-      <ConversationFilters active={filter} counts={counts} onChange={setFilter} />
+      {/* Filter chips — compact */}
+      <div className="shrink-0 -my-1">
+        <ConversationFilters active={filter} counts={counts} onChange={setFilter} />
+      </div>
 
-      {/* Workspace area — fits viewport so reply bar is always visible */}
+      {/* Workspace area — chat shows one big mail, scrollable, slightly compact */}
       {isLoading ? (
-        <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-4 lg:h-[calc(100vh-140px)] lg:items-stretch">
-          <div className="h-[400px] lg:h-full bg-bg-sidebar border border-border rounded-xl animate-pulse" />
+        <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-3 flex-1 min-h-[620px] lg:min-h-[700px]">
+          <div className="h-[300px] lg:h-full bg-bg-sidebar border border-border rounded-xl animate-pulse" />
           <div className="h-[600px] lg:h-full bg-bg-card border border-border rounded-xl animate-pulse" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-4 lg:h-[calc(100vh-140px)] lg:items-stretch">
-          {/* Conversation List — full viewport height, scrolls internally */}
+        <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-3 flex-1 min-h-[620px] lg:min-h-[700px] lg:items-stretch">
+          {/* Conversation List — longer on mobile, scrolls internally */}
           <div
-            className={`bg-bg-sidebar border border-border rounded-xl shadow-card overflow-y-auto max-h-[60vh] lg:max-h-none lg:h-full ${
+            className={`bg-bg-sidebar border border-border rounded-xl shadow-card overflow-y-auto max-h-[62vh] lg:max-h-none lg:h-full min-h-0 ${
               selectedStillVisible ? 'hidden lg:block' : ''
             }`}
           >
@@ -126,12 +128,12 @@ const ConversationsPage: React.FC = () => {
             )}
           </div>
 
-          {/* Detail Column — fills viewport, internal scroll keeps reply bar pinned */}
-          <div className={`${selectedStillVisible ? '' : 'hidden lg:block'} min-h-[520px] lg:min-h-0 lg:h-full lg:flex lg:flex-col`}>
+          {/* Detail Column — BIGGER messages: fills most of viewport */}
+          <div className={`${selectedStillVisible ? '' : 'hidden lg:block'} flex flex-col min-h-[520px] lg:min-h-0 flex-1 overflow-hidden`}>
             {selectedStillVisible ? (
               <ConversationDetail conversation={selectedStillVisible} onBack={() => setSelected(null)} />
             ) : (
-              <div className="bg-bg-card border border-border rounded-xl flex items-center justify-center min-h-[520px] lg:h-full">
+              <div className="bg-bg-card border border-border rounded-xl flex items-center justify-center flex-1 min-h-[400px]">
                 <p className="font-sans text-sm text-fg-body">Select a conversation to view it</p>
               </div>
             )}

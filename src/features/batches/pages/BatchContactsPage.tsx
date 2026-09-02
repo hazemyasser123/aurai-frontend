@@ -7,7 +7,7 @@ import { useBatchAccounts } from '@/features/batches/hooks/useBatchAccounts';
 import { useBatchContacts } from '@/features/batches/hooks/useBatchContacts';
 import { useDraftOutreach } from '@/features/batches/hooks/useDraftOutreach';
 import { useBatch } from '@/features/batches/hooks/useBatch';
-import { getBatchStep, getStatusRoute } from '@/features/batches/utils/batchFlow';
+import { isStepAtLeast, getStatusRoute } from '@/features/batches/utils/batchFlow';
 import { AccountContactsSection } from '@/features/batches/components/AccountContactsSection';
 import type { Contact } from '@/features/batches/types/batchTypes';
 import toast from 'react-hot-toast';
@@ -21,13 +21,16 @@ const BatchContactsPage: React.FC = () => {
     const { data: contacts, isLoading: isLoadingContacts } = useBatchContacts(batchId || '');
     const { data: batch, isLoading: isLoadingBatch } = useBatch(batchId || '');
 
-    // Access control: this page is only for the 'contacts' step (status "contacts fetched").
+    // Past viewing allowed: requires at least 'contacts' (contacts fetched).
+    // If status is still Draft/Executed/Enriched (before contacts), redirect to canonical.
     useEffect(() => {
         if (!batch || !batchId) return;
-        if (getBatchStep(batch.status) !== 'contacts') {
+        if (!isStepAtLeast(batch.status, 'contacts')) {
             navigate(getStatusRoute(batchId, batch.status), { replace: true });
         }
     }, [batch, batchId, navigate]);
+
+    const isPastDraft = isStepAtLeast(batch?.status, 'draft');
 
     const [contactToView, setContactToView] = useState<Contact | null>(null);
     const draftOutreach = useDraftOutreach(batchId || '');
@@ -86,16 +89,27 @@ const BatchContactsPage: React.FC = () => {
                         </p>
                     </div>
                 </div>
-                <Button
-                    variant="gradient"
-                    className="w-full sm:w-auto"
-                    onClick={handleDraftMessages}
-                    isLoading={draftOutreach.isPending}
-                    disabled={draftOutreach.isPending || totalContacts === 0}
-                >
-                    Draft Messages
-                    <FiArrowRight className="w-4 h-4" />
-                </Button>
+                {isPastDraft ? (
+                    <Button
+                        variant="outline"
+                        className="w-full sm:w-auto"
+                        onClick={() => navigate(`/batches/${batchId}/draft`)}
+                    >
+                        View Drafts
+                        <FiArrowRight className="w-4 h-4" />
+                    </Button>
+                ) : (
+                    <Button
+                        variant="gradient"
+                        className="w-full sm:w-auto"
+                        onClick={handleDraftMessages}
+                        isLoading={draftOutreach.isPending}
+                        disabled={draftOutreach.isPending || totalContacts === 0}
+                    >
+                        Draft Messages
+                        <FiArrowRight className="w-4 h-4" />
+                    </Button>
+                )}
             </div>
 
             {/* Account Sections */}

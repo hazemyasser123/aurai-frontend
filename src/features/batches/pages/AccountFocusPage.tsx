@@ -8,6 +8,7 @@ import { FaLinkedinIn, FaTwitter, FaFacebookF } from 'react-icons/fa';
 import { useAccountDetails } from '@/features/batches/hooks/useAccountDetails';
 import { useAccountContacts } from '@/features/batches/hooks/useAccountContacts';
 import { useAddManualContact } from '@/features/batches/hooks/useAddManualContact';
+import { useBatch } from '@/features/batches/hooks/useBatch';
 import { ContactCard } from '@/features/batches/components/ContactCard';
 import type { Contact } from '@/features/batches/types/batchTypes';
 import toast from 'react-hot-toast';
@@ -48,6 +49,8 @@ const AccountFocusPage: React.FC = () => {
     const { data: accountDetails, isLoading } = useAccountDetails(accountId || '', batchId);
     const { data: contacts } = useAccountContacts(accountId || '', batchId);
     const addContact = useAddManualContact(accountId || '', batchId);
+    const { data: batch } = useBatch(batchId || '');
+    const isExecuted = (batch?.status || '').toLowerCase() === 'executed';
 
     const [searchQuery, setSearchQuery] = useState('');
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -158,6 +161,14 @@ const AccountFocusPage: React.FC = () => {
                 </div>
             </Card>
 
+            {/* Executed phase notice — company details not available until enrich */}
+            {isExecuted && (
+                <Card variant="elevated" className="flex flex-col gap-3 mb-6 border-amber-200 bg-amber-50">
+                    <h3 className="font-sans font-semibold text-sm text-amber-800">Company details unavailable</h3>
+                    <p className="font-sans text-sm text-amber-700">Accounts have been found but not yet enriched. Company details (firmographics, achievements, news, pain points) will be available after <span className="font-semibold">Enrich & Rank</span>.</p>
+                </Card>
+            )}
+
             {/* Contacts Section */}
             <Card variant="elevated" className="flex flex-col gap-6 mb-6">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -194,9 +205,10 @@ const AccountFocusPage: React.FC = () => {
                 </div>
             </Card>
 
-            {/* Collapsible Sections */}
-            <div className="flex flex-col gap-4">
-                <CollapsibleSection title="Latest Achievements">
+            {/* Collapsible Sections — hidden in Executed phase (no enrichment yet) */}
+            {!isExecuted && (
+                <div className="flex flex-col gap-4">
+                    <CollapsibleSection title="Latest Achievements">
                     <div className="flex flex-col gap-3">
                         {enrichmentData?.achievements?.length > 0 ? (
                             enrichmentData.achievements.map((item: string, i: number) => (
@@ -239,7 +251,8 @@ const AccountFocusPage: React.FC = () => {
                         ) : <p className="text-sm text-fg-body">No data available.</p>}
                     </div>
                 </CollapsibleSection>
-            </div>
+                </div>
+            )}
 
             {/* Add Contact Modal */}
             <Modal

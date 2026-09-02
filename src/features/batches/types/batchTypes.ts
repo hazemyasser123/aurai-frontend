@@ -1,12 +1,23 @@
-// Enums — synced with backend (Python str, Enum)
-export type BatchStatus = "Draft" | "Enriched" | "contacts fetched" | "emails drafted" | "outriched" | "Executed";
-export type BatchAccountStatus = "Best fit" | "likely match" | "poor" | "Ignored";
-export type AccountSource = "local" | "apollo";
-export type ContactSource = "apollo" | "signalhire";
+export type BatchStatus =
+  | "Draft"
+  | "Enriched"
+  | "contacts fetched"
+  | "emails drafted"
+  | "outriched"
+  | "Executed";
+
+export type BatchAccountStatus =
+  | "Best fit"
+  | "likely match"
+  | "poor"
+  | "Ignored";
+
+export type AccountSource = string;
+export type ContactSource = string;
 
 export interface BatchDatasources {
-  accounts: AccountSource[];
-  contacts: ContactSource[];
+  accounts: string[];
+  contacts: string[];
 }
 
 export interface ProductAnalysis {
@@ -267,26 +278,39 @@ export interface UpdateOutreachPayload {
 }
 
 export interface SendBulkOutreachPayload {
-  batch_id?: string;      // Option 1: send all unsent emails in a batch
-  email_ids?: string[];   // Option 2: send specific emails by ID
+  batch_id?: string; // Option 1: send all unsent emails in a batch
+  email_ids?: string[]; // Option 2: send specific emails by ID
 }
 
 export interface SendBulkOutreachResponse {
   sent_count: number;
-  batch_status?: string;  // e.g. "outriched" when last unsent email is sent
+  batch_status?: string; // e.g. "outriched" when last unsent email is sent
   emails?: OutreachConversation[];
 }
 
 export interface OutreachMessage {
   id?: string;
+  graph_message_id?: string;
   conversation_id?: string;
-  direction?: string; // "outbound" (agent) | "inbound" (contact)
+  direction?: string; // "Outbound"/"Inbound" (new) or "outbound"/"inbound" (legacy)
   sender?: string;
+  from_address?: string;
+  to_addresses?: string[];
+  cc_addresses?: string[];
+  bcc_addresses?: string[];
+  display_text?: string;
   body?: string;
+  body_text?: string | null;
   bodyText?: string;
+  body_html?: string | null;
   bodyHtml?: string;
   created_at?: string;
+  occurred_at?: string;
   occurredAt?: string;
+  attachments?: unknown[];
+  is_ndr?: boolean;
+  is_forward?: boolean;
+  is_system_notification?: boolean;
 }
 
 export interface OutreachEmail {
@@ -302,6 +326,7 @@ export interface OutreachEmail {
 }
 
 // GET /outreach/conversations/:id/thread response (normalized by batchApi)
+// Actual backend shape (see HAR): conversation_id, external_thread_id, subject, recipient_email, status, classification, needs_human_action, needs_followup, pending_reply_content, first_name, last_name, account_name, messages[]
 export interface OutreachThread {
   id: string;
   conversation_id?: string;
@@ -311,21 +336,25 @@ export interface OutreachThread {
   contact_id?: string;
   account_id?: string;
   status: string;
+  subject?: string;
+  recipient_email?: string | null;
   classification?: string;
   needs_human_action?: boolean;
-  human_action_reason?: string;
+  human_action_reason?: string | null;
+  needs_followup?: boolean;
+  pending_reply_content?: string | null;
+  pending_reply_scheduled_at?: string | null;
   resolved_at?: string;
   first_name?: string;
   last_name?: string;
   title?: string;
   photo_url?: string | null;
-  recipient_email?: string | null;
   account_name?: string;
   account_domain?: string;
   account_logo_url?: string | null;
-  // The original cold email that started the thread
+  // The original cold email that started the thread (legacy / synthetic)
   email?: OutreachEmail | null;
-  // Everything after the original email, chronological
+  // Full chronological history (Graph messages)
   messages: OutreachMessage[];
 }
 

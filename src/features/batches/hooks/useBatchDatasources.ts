@@ -6,7 +6,9 @@ export const useBatchDatasources = () => {
   return useQuery<BatchDatasources>({
     queryKey: ['batches', 'datasources'],
     queryFn: batchApi.getDatasources,
-    staleTime: 1000 * 60 * 10,
+    staleTime: 1000 * 60 * 3,
+    gcTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
     retry: false,
   });
 };

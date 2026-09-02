@@ -1,6 +1,6 @@
 import React from 'react';
 import type { Conversation } from '@/features/batches/types/batchTypes';
-import { getStatusBadge, getClassificationBadge } from './badgeStyles';
+import { getStatusBadge, getClassificationBadge, getHumanActionBadge, getFollowupBadge } from './badgeStyles';
 
 interface Props {
   conversation: Conversation;
@@ -12,6 +12,11 @@ export const ConversationItem: React.FC<Props> = ({ conversation: c, isActive, o
   const initials = `${(c.first_name?.charAt(0) ?? '?').toUpperCase()}${(c.last_name?.charAt(0) ?? '').toUpperCase()}`;
   const statusBadge = getStatusBadge(c.status);
   const classBadge = getClassificationBadge(c.classification);
+  const humanBadge = getHumanActionBadge(c.needs_human_action);
+  const followupBadge = getFollowupBadge(c.needs_followup);
+  // Max 3 tags: Classification + Human Action + Follow-up (plus status as 4th is allowed but we cap at 3 of the spec trio + status)
+  const flagBadges = [classBadge, humanBadge, followupBadge].filter(Boolean) as ReturnType<typeof getClassificationBadge>[];
+  const displayFlags = flagBadges.slice(0, 3);
 
     return (
     <button
@@ -49,11 +54,14 @@ export const ConversationItem: React.FC<Props> = ({ conversation: c, isActive, o
               {statusBadge.label}
             </span>
           )}
-          {classBadge && (
-            <span className={`inline-flex items-center justify-center px-2.5 py-1 rounded-full font-sans font-medium text-[11px] leading-3 whitespace-nowrap ${classBadge.className}`}>
-              {classBadge.label}
+          {displayFlags.map((b, i) => (
+            <span
+              key={`${b!.label}-${i}`}
+              className={`inline-flex items-center justify-center px-2.5 py-1 rounded-full font-sans font-medium text-[11px] leading-3 whitespace-nowrap ${b!.className}`}
+            >
+              {b!.label}
             </span>
-          )}
+          ))}
         </div>
 
         <p className="font-sans font-normal text-xs leading-4 tracking-tight text-fg-medium truncate pt-1.5">

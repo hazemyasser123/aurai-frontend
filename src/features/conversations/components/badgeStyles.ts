@@ -30,3 +30,13 @@ export function getClassificationBadge(classification?: string): BadgeStyle | nu
   const label = c.replace(/\b\w/g, (ch) => ch.toUpperCase());
   return { label, className: 'bg-[#DBEAFE] text-[#155DFC]' };
 }
+
+export function getHumanActionBadge(needs_human_action?: boolean): BadgeStyle | null {
+  if (!needs_human_action) return null;
+  return { label: 'Human Action', className: 'bg-[#FFE2E2] text-[#E7000B] border border-[#FFC9C9]' };
+}
+
+export function getFollowupBadge(needs_followup?: boolean): BadgeStyle | null {
+  if (!needs_followup) return null;
+  return { label: 'Follow-up', className: 'bg-[#FEF3C6] text-[#92400E] border border-[#FDE68A]' };
+}

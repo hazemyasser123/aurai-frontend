@@ -110,7 +110,7 @@ export const ContactsFetchedView: React.FC<Props> = ({ batchId }) => {
               <div className="flex flex-col gap-1">
                 <span className="font-sans font-semibold text-xs text-fg-strong">Subject</span>
                 <div className="px-4 py-2.5 bg-bg-input border border-border rounded-lg text-sm text-fg-strong">
-                  {thread?.email?.subject || selected.subject || '—'}
+                  {thread?.subject || thread?.email?.subject || selected.subject || '—'}
                 </div>
               </div>
 
@@ -121,21 +121,53 @@ export const ContactsFetchedView: React.FC<Props> = ({ batchId }) => {
                     <span className="text-fg-body">Loading thread...</span>
                   ) : thread?.messages && thread.messages.length > 0 ? (
                     <div className="flex flex-col gap-4">
-                      {thread.messages.map((m, idx) => (
-                        <div key={idx} className="flex flex-col gap-1 p-3 bg-bg-card rounded-lg border border-border/50">
-                          <span className="font-sans font-medium text-xs text-fg-muted">
-                            {(m.direction === 'outbound' ? 'You' : 'Contact')} · {m.created_at ? new Date(m.created_at).toLocaleString() : ''}
-                          </span>
-                          <div
-                            className="prose prose-sm max-w-none break-words [&_a]:text-primary [&_a]:underline"
-                            dangerouslySetInnerHTML={{ __html: m.body || '' }}
-                          />
-                        </div>
-                      ))}
+                      {thread.messages.map((m, idx) => {
+                        const isOutbound = (m.direction || '').toLowerCase().includes('out');
+                        const htmlBodyRaw = (m as unknown as { body_html?: string; bodyHtml?: string }).body_html || (m as unknown as { bodyHtml?: string }).bodyHtml || '';
+                        const textBody = (m as unknown as { display_text?: string }).display_text || m.body || '';
+                        let html: string;
+                        let isHtml: boolean;
+                        if (isOutbound) {
+                          html = htmlBodyRaw && htmlBodyRaw.includes('<') ? htmlBodyRaw : textBody;
+                          isHtml = html.includes('<');
+                        } else {
+                          let inboundHtml = htmlBodyRaw;
+                          if (inboundHtml && inboundHtml.includes('<hr')) inboundHtml = inboundHtml.split('<hr')[0];
+                          if (inboundHtml && inboundHtml.includes('divRplyFwdMsg')) inboundHtml = inboundHtml.split('<div id="divRplyFwdMsg"')[0];
+                          if (inboundHtml && inboundHtml.trim().includes('<')) {
+                            html = inboundHtml;
+                            isHtml = true;
+                          } else {
+                            html = textBody;
+                            isHtml = false;
+                          }
+                        }
+                        const time = (m as { occurred_at?: string }).occurred_at || m.created_at || (m as { occurredAt?: string }).occurredAt;
+                        return (
+                          <div key={idx} className="flex flex-col gap-1 p-3 bg-bg-card rounded-lg border border-border/50">
+                            <span className="font-sans font-medium text-xs text-fg-muted">
+                              {isOutbound ? 'You' : 'Contact'} · {time ? new Date(time).toLocaleString() : ''}
+                            </span>
+                            {isHtml ? (
+                              <div
+                                className="prose prose-sm max-w-none break-words [&_p]:my-2 [&_p]:block [&_a]:text-primary [&_a]:underline [&_img]:inline-block [&_table]:w-full"
+                                dangerouslySetInnerHTML={{ __html: html }}
+                              />
+                            ) : (
+                              <div className="font-sans font-normal text-sm leading-6 text-fg whitespace-pre-wrap break-words">{html}</div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
+                  ) : thread?.email?.body ? (
+                    <div
+                      className="prose prose-sm max-w-none break-words [&_p]:my-2 [&_p]:block [&_a]:text-primary [&_a]:underline"
+                      dangerouslySetInnerHTML={{ __html: thread.email.body }}
+                    />
                   ) : (
                     <div
-                      className="break-words [&_h1]:text-xl [&_h1]:font-bold [&_p]:my-2 [&_a]:text-primary [&_a]:underline"
+                      className="break-words [&_h1]:text-xl [&_h1]:font-bold [&_p]:my-2 [&_p]:block [&_a]:text-primary [&_a]:underline prose prose-sm max-w-none"
                       dangerouslySetInnerHTML={{ __html: selected.body || '<p>No content</p>' }}
                     />
                   )}

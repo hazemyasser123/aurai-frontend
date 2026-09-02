@@ -9,7 +9,7 @@ import { useBatchOutreach } from '@/features/batches/hooks/useBatchOutreach';
 import { useDraftOutreach } from '@/features/batches/hooks/useDraftOutreach';
 import { useSendBulkOutreach } from '@/features/batches/hooks/useSendBulkOutreach';
 import { useBatch } from '@/features/batches/hooks/useBatch';
-import { getBatchStep, getStatusRoute } from '@/features/batches/utils/batchFlow';
+import { isStepAtLeast, getStatusRoute } from '@/features/batches/utils/batchFlow';
 import { AccountDraftSection } from '@/features/batches/components/draft/AccountDraftSection';
 import type { OutreachConversation } from '@/features/batches/types/batchTypes';
 import toast from 'react-hot-toast';
@@ -23,13 +23,16 @@ const DraftMessagesPage: React.FC = () => {
   const { data: outreach, isLoading: isLoadingOutreach } = useBatchOutreach(batchId || '');
   const { data: batch, isLoading: isLoadingBatch } = useBatch(batchId || '');
 
-  // Access control: this page is only for the 'draft' step (status "emails drafted").
+  // Past viewing allowed: requires at least 'draft' (emails drafted).
+  // If still before draft (Draft/Executed/Enriched/contacts), redirect to canonical.
   useEffect(() => {
     if (!batch || !batchId) return;
-    if (getBatchStep(batch.status) !== 'draft') {
+    if (!isStepAtLeast(batch.status, 'draft')) {
       navigate(getStatusRoute(batchId, batch.status), { replace: true });
     }
   }, [batch, batchId, navigate]);
+
+  const isPastOutreached = isStepAtLeast(batch?.status, 'outreached');
 
   const draftMutation = useDraftOutreach(batchId || '');
   const sendBulk = useSendBulkOutreach(batchId);
@@ -146,22 +149,36 @@ const DraftMessagesPage: React.FC = () => {
             <FiArrowLeft className="w-4 h-4" />
             Batch Contacts
           </Button>
-          <Button variant="gradient" className="w-full sm:w-auto h-11 px-6" onClick={handleSendAll} isLoading={sendBulk.isPending}>
-            Send All ({safeOutreach.length})
-            <FiArrowRight className="w-4 h-4" />
-          </Button>
+          {isPastOutreached ? (
+            <Button variant="outline" className="w-full sm:w-auto h-11 px-6" onClick={() => navigate(`/batches/${batchId}?tab=accounts`)}>
+              View Outreached
+              <FiArrowRight className="w-4 h-4" />
+            </Button>
+          ) : (
+            <Button variant="gradient" className="w-full sm:w-auto h-11 px-6" onClick={handleSendAll} isLoading={sendBulk.isPending}>
+              Send All ({safeOutreach.length})
+              <FiArrowRight className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Generate drafts CTA when empty */}
+      {/* Generate drafts CTA when empty — disabled when already past this step */}
       {safeOutreach.length === 0 && (
         <div className="flex flex-col items-center justify-center gap-4 py-16 border border-dashed border-border rounded-xl bg-bg-sidebar mb-6">
           <p className="font-sans font-medium text-sm text-fg-body text-center">No drafts yet for this batch.</p>
           <p className="font-sans text-xs text-fg-muted text-center max-w-md">Generate personalized outreach drafts for {contacts?.length ?? 0} contacts using your product intelligence and ICP.</p>
-          <Button variant="gradient" onClick={handleGenerateDrafts} isLoading={draftMutation.isPending} className="h-11 px-6">
-            Generate Drafts ({contacts?.length ?? 0})
-            <FiArrowRight className="w-4 h-4" />
-          </Button>
+          {isPastOutreached ? (
+            <Button variant="outline" onClick={() => navigate(`/batches/${batchId}?tab=accounts`)} className="h-11 px-6">
+              View Outreached
+              <FiArrowRight className="w-4 h-4" />
+            </Button>
+          ) : (
+            <Button variant="gradient" onClick={handleGenerateDrafts} isLoading={draftMutation.isPending} className="h-11 px-6">
+              Generate Drafts ({contacts?.length ?? 0})
+              <FiArrowRight className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       )}
 

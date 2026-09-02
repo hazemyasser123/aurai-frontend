@@ -8,7 +8,7 @@ import { useBatchAccounts } from '@/features/batches/hooks/useBatchAccounts';
 import { useDeleteBatchAccount } from '@/features/batches/hooks/useDeleteBatchAccount';
 import { useFindBatchContacts } from '@/features/batches/hooks/useFindBatchContacts';
 import { useBatch } from '@/features/batches/hooks/useBatch';
-import { getBatchStep, getStatusRoute } from '@/features/batches/utils/batchFlow';
+import { isStepAtLeast, getStatusRoute } from '@/features/batches/utils/batchFlow';
 import { AccountCardSkeleton } from '@/features/batches/components/AccountCardSkeleton';
 import { AccountStatusBadge } from '@/features/batches/components/AccountStatusBadge';
 import type { Account } from '@/features/batches/types/batchTypes';
@@ -24,13 +24,17 @@ const EnrichAndRankPage: React.FC = () => {
     const deleteAccount = useDeleteBatchAccount(batchId || '');
     const findContacts = useFindBatchContacts(batchId || '');
 
-    // Access control: this page is only for the 'enrich' step (status Enriched).
+    // Past viewing allowed: this page requires at least 'enrich' (Enriched).
+    // If status is still Draft/Executed (before enrich), redirect to canonical (explore).
+    // If status is already past enrich (contacts/draft/outreached), user can still view via back button but primary action becomes navigation.
     useEffect(() => {
         if (!batch || !batchId) return;
-        if (getBatchStep(batch.status) !== 'enrich') {
+        if (!isStepAtLeast(batch.status, 'enrich')) {
             navigate(getStatusRoute(batchId, batch.status), { replace: true });
         }
     }, [batch, batchId, navigate]);
+
+    const isPastContacts = isStepAtLeast(batch?.status, 'contacts');
 
     const [searchQuery, setSearchQuery] = useState('');
     const [accountToDelete, setAccountToDelete] = useState<Account | null>(null);
@@ -93,17 +97,28 @@ const EnrichAndRankPage: React.FC = () => {
                         <FiArrowLeft className="w-4 h-4" />
                         Explore Accounts
                     </Button>
-                    <Button
-                        variant="gradient"
-                        className="w-full sm:w-auto"
-                        onClick={handleFindContacts}
-                        isLoading={findContacts.isPending}
-                        disabled={findContacts.isPending}
-                    >
-                        <RiSearchAi3Line className="w-4 h-4" />
-                        Find Contacts
-                        <FiArrowRight className="w-4 h-4" />
-                    </Button>
+                    {isPastContacts ? (
+                        <Button
+                            variant="outline"
+                            className="w-full sm:w-auto"
+                            onClick={() => navigate(`/batches/${batchId}/contacts`)}
+                        >
+                            View Contacts
+                            <FiArrowRight className="w-4 h-4" />
+                        </Button>
+                    ) : (
+                        <Button
+                            variant="gradient"
+                            className="w-full sm:w-auto"
+                            onClick={handleFindContacts}
+                            isLoading={findContacts.isPending}
+                            disabled={findContacts.isPending}
+                        >
+                            <RiSearchAi3Line className="w-4 h-4" />
+                            Find Contacts
+                            <FiArrowRight className="w-4 h-4" />
+                        </Button>
+                    )}
                 </div>
             </div>
 
@@ -152,7 +167,9 @@ const EnrichAndRankPage: React.FC = () => {
                     {filteredAccounts.map((account) => {
                         // FIX: Check for 'error' and 'processing' (case-insensitive)
                         const lowerStatus = account.status?.toLowerCase() || '';
-                        const isDisabled = lowerStatus === 'error' || lowerStatus === 'processing';
+                        const batchLower = (batch?.status || '').toLowerCase();
+                        const isExecutedPhase = batchLower === 'executed';
+                        const isDisabled = lowerStatus === 'error' || lowerStatus === 'processing' || isExecutedPhase;
 
                         return (
                             <div key={account.id} className="bg-bg-sidebar border border-border rounded-xl p-6 flex flex-col gap-6 relative hover:shadow-card transition-shadow min-h-[177px]">
@@ -188,6 +205,7 @@ const EnrichAndRankPage: React.FC = () => {
                                         variant="ghost"
                                         className="py-1 px-2 h-8 text-xs"
                                         disabled={isDisabled}
+                                        title={isExecutedPhase ? 'Company details unavailable until enrichment — enrich first' : undefined}
                                         onClick={() => navigate(`/batches/${batchId}/accounts/${account.id}`)}
                                     >
                                         View Full Details

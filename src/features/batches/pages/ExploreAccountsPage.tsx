@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { WithNavbar } from '@/shared/components/hoc/WithNavbar';
 import { Button, InputField, Modal, Textarea } from '@/shared/components/ui';
@@ -9,7 +9,7 @@ import { useAddBatchAccount } from '@/features/batches/hooks/useAddBatchAccount'
 import { useFetchMoreAccounts } from '@/features/batches/hooks/useFetchMoreAccounts';
 import { useEnrichAndEvaluateAccounts } from '@/features/batches/hooks/useEnrichAndEvaluateAccounts';
 import { useBatch } from '@/features/batches/hooks/useBatch';
-import { getBatchStep, getStatusRoute } from '@/features/batches/utils/batchFlow';
+import { isStepAtLeast } from '@/features/batches/utils/batchFlow';
 import { AccountCardSkeleton } from '@/features/batches/components/AccountCardSkeleton';
 import type { Account } from '@/features/batches/types/batchTypes';
 import toast from 'react-hot-toast';
@@ -26,14 +26,9 @@ const ExploreAccountsPage: React.FC = () => {
     const fetchMore = useFetchMoreAccounts(batchId || '');
     const enrichMutation = useEnrichAndEvaluateAccounts(batchId || '');
 
-    // Access control: this page is only for the 'explore' step (status Draft).
-    // Any later status redirects to its canonical page.
-    useEffect(() => {
-        if (!batch || !batchId) return;
-        if (getBatchStep(batch.status) !== 'explore') {
-            navigate(getStatusRoute(batchId, batch.status), { replace: true });
-        }
-    }, [batch, batchId, navigate]);
+    // Past viewing allowed: this page is for 'explore' (Draft) and 'executed' (accounts found).
+    // If status is already past enrich, user can still view this page via back button, but the primary action becomes navigation instead of re-executing enrich.
+    const isPastEnrich = isStepAtLeast(batch?.status, 'enrich');
 
     const [searchQuery, setSearchQuery] = useState('');
     const [accountToDelete, setAccountToDelete] = useState<Account | null>(null);
@@ -152,16 +147,27 @@ const ExploreAccountsPage: React.FC = () => {
                         </p>
                     </div>
                 </div>
-                <Button
-                    variant="gradient"
-                    className="w-full sm:w-auto"
-                    disabled={isFetchingMore || !accounts || accounts.length === 0}
-                    isLoading={enrichMutation.isPending}
-                    onClick={handleEnrichAndRank}
-                >
-                    Enrich & Rank
-                    <FiArrowRight className="w-4 h-4" />
-                </Button>
+                {isPastEnrich ? (
+                    <Button
+                        variant="outline"
+                        className="w-full sm:w-auto"
+                        onClick={() => navigate(`/batches/${batchId}/accounts/enrich`)}
+                    >
+                        View Enriched & Ranked
+                        <FiArrowRight className="w-4 h-4" />
+                    </Button>
+                ) : (
+                    <Button
+                        variant="gradient"
+                        className="w-full sm:w-auto"
+                        disabled={isFetchingMore || !accounts || accounts.length === 0}
+                        isLoading={enrichMutation.isPending}
+                        onClick={handleEnrichAndRank}
+                    >
+                        Enrich & Rank
+                        <FiArrowRight className="w-4 h-4" />
+                    </Button>
+                )}
             </div>
 
             {/* Controllers */}
