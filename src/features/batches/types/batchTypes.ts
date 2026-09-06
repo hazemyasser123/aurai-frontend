@@ -55,6 +55,10 @@ export interface Account {
   name: string;
   logo_url: string | null;
   status: string;
+  global_firmographics?: Record<string, any>;
+  enrichment_status?: string;
+  enrichment_data?: Record<string, any>;
+  updated_at?: string;
 }
 
 export interface Batch {

@@ -60,16 +60,52 @@ const AccountFocusPage: React.FC = () => {
     const [contactToView, setContactToView] = useState<Contact | null>(null);
 
     const account = accountDetails?.account;
-    const enrichmentData = accountDetails?.enrichment_data || {};
-    const firmographics = enrichmentData?.global_firmographics || {};
-    const socialLinks = enrichmentData?.social_links || {};
+    // New backend shape: enrichment_data duplicated at top level AND inside account;
+    // firmographics live at account.global_firmographics (website_url, linkedin_url, phone, logo_url...)
+    const enrichmentData = accountDetails?.enrichment_data || (account as unknown as { enrichment_data?: Record<string, unknown> })?.enrichment_data || {};
+    const firmographics = ((account as unknown as { global_firmographics?: Record<string, unknown> })?.global_firmographics || (enrichmentData as Record<string, unknown>)?.global_firmographics || {}) as Record<string, any>;
+    const socialLinks = ((enrichmentData as Record<string, unknown>)?.social_links || {}) as Record<string, any>;
+
+    const websiteUrl = firmographics.website_url || firmographics.website || account?.domain;
+    const linkedinUrl = firmographics.linkedin_url || socialLinks.linkedin;
+    const twitterUrl = firmographics.twitter_url || socialLinks.twitter;
+    const facebookUrl = firmographics.facebook_url || socialLinks.facebook;
+    const phoneNumber = firmographics.phone || firmographics.primary_phone?.number || firmographics.sanitized_phone;
+    const logoUrl = account?.logo_url || firmographics.logo_url;
+    const alexaRanking = firmographics.alexa_ranking;
+
+    // New enrichment shapes (arrays of {description,date} / {title,summary,source_url,date}) with legacy fallbacks
+    const achievements = (enrichmentData as Record<string, any>)?.latest_achievements ?? (enrichmentData as Record<string, any>)?.achievements ?? [];
+    const newsItems = (enrichmentData as Record<string, any>)?.latest_news_and_events ?? (enrichmentData as Record<string, any>)?.news ?? [];
+    const techChanges = (enrichmentData as Record<string, any>)?.technology_challenges_and_changes ?? (enrichmentData as Record<string, any>)?.tech_challenges ?? [];
+    const hiringSignals = (enrichmentData as Record<string, any>)?.hiring_signals ?? [];
+    const painPoints = (enrichmentData as Record<string, any>)?.pain_points ?? [];
+    const fundingUpdates = (enrichmentData as Record<string, any>)?.funding_and_budget_updates ?? [];
+    const decisionMakerChanges = (enrichmentData as Record<string, any>)?.decision_maker_changes ?? [];
+    const consRisks = (enrichmentData as Record<string, any>)?.client_cons_and_risks ?? [];
+    const leadSummary = (enrichmentData as Record<string, any>)?.lead_evaluation_summary as string | undefined;
+
+    const renderDescriptionItem = (item: unknown, i: number) => {
+      if (typeof item === 'string') {
+        return <div key={i} className="text-sm text-fg-medium pb-2 border-b border-border last:border-b-0">{item}</div>;
+      }
+      const obj = item as { description?: string; date?: string };
+      return (
+        <div key={i} className="pb-2 border-b border-border last:border-b-0">
+          <div className="text-sm text-fg-medium">{obj.description || ''}</div>
+          {obj.date && <div className="text-xs text-fg-muted mt-1">{obj.date}</div>}
+        </div>
+      );
+    };
 
     const filteredContacts = contacts?.filter(c =>
         `${c.first_name} ${c.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.title.toLowerCase().includes(searchQuery.toLowerCase())
     ) || [];
 
-    const recommendedContact = filteredContacts.find(c => c.is_recommended);
+    // Backend supports MULTIPLE recommended contacts per account (see GET /accounts/:id/contacts),
+    // so use filter (plural) like AccountContactsSection — .find would hide all but the first.
+    const recommendedContacts = filteredContacts.filter(c => c.is_recommended);
     const otherContacts = filteredContacts.filter(c => !c.is_recommended);
 
     const handleAddContact = async () => {
@@ -114,7 +150,16 @@ const AccountFocusPage: React.FC = () => {
             {/* Hero Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 sm:mb-8">
                 <div className="flex items-center gap-3">
-                    <button onClick={() => navigate(`/batches/${batchId}/accounts/enrich`)} className="p-1.5 rounded-md text-fg hover:bg-bg-muted transition-colors">
+                    <button
+                        onClick={() => {
+                            // Go back in history instead of forcing the enrich page;
+                            // fall back to enrich only on direct landings with no history.
+                            if (window.history.length > 1) navigate(-1);
+                            else navigate(`/batches/${batchId}/accounts/enrich`);
+                        }}
+                        title="Go back"
+                        className="p-1.5 rounded-md text-fg hover:bg-bg-muted transition-colors"
+                    >
                         <FiArrowLeft className="w-5 h-5" />
                     </button>
                     <h2 className="font-sans font-bold text-xl sm:text-2xl tracking-tight text-fg">{account?.name}</h2>
@@ -129,8 +174,8 @@ const AccountFocusPage: React.FC = () => {
             <Card variant="elevated" className="flex flex-col md:flex-row items-center gap-6 mb-6 p-6">
                 {/* Left: Company Logo */}
                 <div className="w-24 h-24 rounded-lg bg-bg-purple-50 border border-border flex items-center justify-center flex-shrink-0">
-                    {account?.logo_url ? (
-                        <img src={account.logo_url} alt={account.name} className="w-full h-full object-contain p-2" />
+                    {logoUrl ? (
+                        <img src={logoUrl} alt={account?.name || 'Company logo'} className="w-full h-full object-contain p-2" />
                     ) : (
                         <FiHome className="w-10 h-10 text-primary" />
                     )}
@@ -141,24 +186,26 @@ const AccountFocusPage: React.FC = () => {
                     <h3 className="font-sans font-semibold text-lg text-fg">{account?.name}</h3>
 
                     <div className="flex flex-wrap gap-x-4 gap-y-2 mt-1">
-                        <InfoItem icon={<FiGlobe className="w-4 h-4" />} label={firmographics.website || account?.domain} link={firmographics.website || account?.domain} />
-                        <InfoItem icon={<FaLinkedinIn className="w-4 h-4" />} label="Company LinkedIn" link={socialLinks.linkedin} />
-                        <InfoItem icon={<FaTwitter className="w-4 h-4" />} label="Company Twitter" link={socialLinks.twitter} />
-                        <InfoItem icon={<FaFacebookF className="w-4 h-4" />} label="Company Facebook" link={socialLinks.facebook} />
-                        <InfoItem icon={<FiPhone className="w-4 h-4" />} label={firmographics.phone} />
+                        <InfoItem icon={<FiGlobe className="w-4 h-4" />} label={websiteUrl} link={websiteUrl} />
+                        <InfoItem icon={<FaLinkedinIn className="w-4 h-4" />} label="Company LinkedIn" link={linkedinUrl} />
+                        <InfoItem icon={<FaTwitter className="w-4 h-4" />} label="Company Twitter" link={twitterUrl} />
+                        <InfoItem icon={<FaFacebookF className="w-4 h-4" />} label="Company Facebook" link={facebookUrl} />
+                        <InfoItem icon={<FiPhone className="w-4 h-4" />} label={phoneNumber} />
                         <InfoItem icon={<FiMapPin className="w-4 h-4" />} label={locationString} />
                         <InfoItem icon={<FiHome className="w-4 h-4" />} label={firmographics.founded_year ? `Founded, ${firmographics.founded_year}` : undefined} />
                     </div>
                 </div>
 
-                {/* Right: Alexa Rank (Static Data for now) */}
-                <div className="flex items-center gap-2 bg-bg-muted px-3 py-2 rounded-lg flex-shrink-0">
-                    <span className="font-sans font-medium text-xs text-fg">Alexa rank </span>
-                    <div className="flex items-center gap-2 bg-orange-bg text-orange px-3 py-1 rounded-md text-sm font-semibold">
-                        <FiBarChart2 className="w-4 h-4" />
-                        <span>123,456</span>
+                {/* Right: Alexa Rank — only when provided by firmographics */}
+                {alexaRanking ? (
+                    <div className="flex items-center gap-2 bg-bg-muted px-3 py-2 rounded-lg flex-shrink-0">
+                        <span className="font-sans font-medium text-xs text-fg">Alexa rank </span>
+                        <div className="flex items-center gap-2 bg-orange-bg text-orange px-3 py-1 rounded-md text-sm font-semibold">
+                            <FiBarChart2 className="w-4 h-4" />
+                            <span>{alexaRanking}</span>
+                        </div>
                     </div>
-                </div>
+                ) : null}
             </Card>
 
             {/* Executed phase notice — company details not available until enrich */}
@@ -184,11 +231,11 @@ const AccountFocusPage: React.FC = () => {
                     </div>
                 </div>
 
-                {recommendedContact && (
+                {recommendedContacts.length > 0 && (
                     <div className="flex flex-col gap-2">
-                        <h4 className="font-sans font-semibold text-sm text-primary">Recommended Contact</h4>
-                        <div className="bg-bg-page p-4 rounded-lg">
-                            <ContactCard contact={recommendedContact} accountId={accountId} batchId={batchId} onViewDetails={setContactToView} />
+                        <h4 className="font-sans font-semibold text-sm text-primary">Recommended Contact(s)</h4>
+                        <div className="bg-bg-page p-4 rounded-lg flex flex-col">
+                            {recommendedContacts.map(contact => <ContactCard key={contact.id} contact={contact} accountId={accountId} batchId={batchId} onViewDetails={setContactToView} />)}
                         </div>
                     </div>
                 )}
@@ -210,46 +257,90 @@ const AccountFocusPage: React.FC = () => {
                 <div className="flex flex-col gap-4">
                     <CollapsibleSection title="Latest Achievements">
                     <div className="flex flex-col gap-3">
-                        {enrichmentData?.achievements?.length > 0 ? (
-                            enrichmentData.achievements.map((item: string, i: number) => (
-                                <div key={i} className="text-sm text-fg-medium pb-2 border-b border-border last:border-b-0">{item}</div>
-                            ))
+                        {achievements?.length > 0 ? (
+                            achievements.map((item: unknown, i: number) => renderDescriptionItem(item, i))
                         ) : <p className="text-sm text-fg-body">No data available.</p>}
                     </div>
                 </CollapsibleSection>
 
                 <CollapsibleSection title="Latest News and Events">
                     <div className="flex flex-col gap-3">
-                        {enrichmentData?.news?.length > 0 ? (
-                            enrichmentData.news.map((item: string, i: number) => (
-                                <div key={i} className="text-sm text-fg-medium pb-2 border-b border-border last:border-b-0">{item}</div>
-                            ))
+                        {newsItems?.length > 0 ? (
+                            newsItems.map((item: unknown, i: number) => {
+                                if (typeof item === 'string') {
+                                    return <div key={i} className="text-sm text-fg-medium pb-2 border-b border-border last:border-b-0">{item}</div>;
+                                }
+                                const n = item as { title?: string; summary?: string; source_url?: string; date?: string };
+                                return (
+                                    <div key={i} className="pb-2 border-b border-border last:border-b-0">
+                                        {n.title && <div className="text-sm font-medium text-fg">{n.title}</div>}
+                                        {n.summary && <div className="text-sm text-fg-medium mt-1">{n.summary}</div>}
+                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
+                                            {n.date && <span className="text-xs text-fg-muted">{n.date}</span>}
+                                            {n.source_url && <a href={n.source_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">Source</a>}
+                                        </div>
+                                    </div>
+                                );
+                            })
                         ) : <p className="text-sm text-fg-body">No data available.</p>}
                     </div>
                 </CollapsibleSection>
 
                 <CollapsibleSection title="Technology Challenges and Changes">
-                    <p className="text-sm text-fg-body">{enrichmentData?.tech_challenges || "No data available."}</p>
+                    <div className="flex flex-col gap-3">
+                        {techChanges?.length > 0 ? (
+                            (Array.isArray(techChanges) ? techChanges : [techChanges]).map((item: unknown, i: number) => renderDescriptionItem(item, i))
+                        ) : <p className="text-sm text-fg-body">No data available.</p>}
+                    </div>
                 </CollapsibleSection>
 
                 <CollapsibleSection title="Hiring Signals">
-                    <div className="flex flex-wrap gap-2">
-                        {enrichmentData?.hiring_signals?.length > 0 ? (
-                            enrichmentData.hiring_signals.map((signal: string, i: number) => (
-                                <span key={i} className="px-3 py-1 bg-bg-muted text-fg-medium text-xs rounded-full">{signal}</span>
-                            ))
+                    <div className="flex flex-col gap-3">
+                        {hiringSignals?.length > 0 ? (
+                            hiringSignals.map((item: unknown, i: number) => {
+                                if (typeof item === 'string') {
+                                    return <span key={i} className="px-3 py-1 bg-bg-muted text-fg-medium text-xs rounded-full w-fit">{item}</span>;
+                                }
+                                return renderDescriptionItem(item, i);
+                            })
                         ) : <p className="text-sm text-fg-body">No data available.</p>}
                     </div>
                 </CollapsibleSection>
 
                 <CollapsibleSection title="Pain Points">
                     <div className="flex flex-col gap-3">
-                        {enrichmentData?.pain_points?.length > 0 ? (
-                            enrichmentData.pain_points.map((item: string, i: number) => (
-                                <div key={i} className="text-sm text-fg-medium pb-2 border-b border-border last:border-b-0">{item}</div>
-                            ))
+                        {painPoints?.length > 0 ? (
+                            painPoints.map((item: unknown, i: number) => renderDescriptionItem(item, i))
                         ) : <p className="text-sm text-fg-body">No data available.</p>}
                     </div>
+                </CollapsibleSection>
+
+                <CollapsibleSection title="Funding & Budget Updates">
+                    <div className="flex flex-col gap-3">
+                        {fundingUpdates?.length > 0 ? (
+                            fundingUpdates.map((item: unknown, i: number) => renderDescriptionItem(item, i))
+                        ) : <p className="text-sm text-fg-body">No data available.</p>}
+                    </div>
+                </CollapsibleSection>
+
+                <CollapsibleSection title="Decision Maker Changes">
+                    <div className="flex flex-col gap-3">
+                        {decisionMakerChanges?.length > 0 ? (
+                            decisionMakerChanges.map((item: unknown, i: number) => renderDescriptionItem(item, i))
+                        ) : <p className="text-sm text-fg-body">No data available.</p>}
+                    </div>
+                </CollapsibleSection>
+
+                <CollapsibleSection title="Client Cons & Risks">
+                    <div className="flex flex-col gap-3">
+                        {consRisks?.length > 0 ? (
+                            consRisks.map((item: unknown, i: number) => renderDescriptionItem(item, i))
+                        ) : <p className="text-sm text-fg-body">No data available.</p>}
+                    </div>
+                </CollapsibleSection>
+
+                <CollapsibleSection title="Lead Evaluation Summary">
+                    <p className="text-sm text-fg-body whitespace-pre-wrap">{leadSummary || "No data available."}</p>
                 </CollapsibleSection>
                 </div>
             )}

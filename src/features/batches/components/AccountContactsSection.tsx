@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button, Card, Modal, InputField } from '@/shared/components/ui';
-import { FiSearch, FiPlus } from 'react-icons/fi';
+import { FiSearch, FiPlus, FiChevronRight } from 'react-icons/fi';
 import { ContactCard } from '@/features/batches/components/ContactCard';
 import { FindContactsModal } from '@/features/batches/components/FindContactsModal';
 import { useAddManualContact } from '@/features/batches/hooks/useAddManualContact';
@@ -17,6 +18,7 @@ interface AccountContactsSectionProps {
 }
 
 export const AccountContactsSection: React.FC<AccountContactsSectionProps> = ({ account, contacts, batchId, onViewDetails }) => {
+    const navigate = useNavigate();
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isFindModalOpen, setIsFindModalOpen] = useState(false);
     const [newContact, setNewContact] = useState({ first_name: '', last_name: '', title: '', email: '', phone: '', linkedin_url: '' });
@@ -134,21 +136,43 @@ export const AccountContactsSection: React.FC<AccountContactsSectionProps> = ({ 
 
     return (
         <Card variant="elevated" className="flex flex-col gap-6 mb-6">
-            {/* Account Header */}
+            {/* Account Header — click company to view its details */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                    {account.logo_url ? (
-                        <img src={account.logo_url} alt={account.name ?? 'Account'} className="w-14 h-14 rounded-xl object-cover bg-bg-purple-50" />
-                    ) : (
-                        <div className="w-14 h-14 rounded-xl bg-bg-purple-50 flex items-center justify-center text-2xl font-bold text-primary">
-                            {(account.name?.charAt(0) ?? '?').toUpperCase()}
+                {batchId ? (
+                    <button
+                        type="button"
+                        onClick={() => navigate(`/batches/${batchId}/accounts/${account.id}`)}
+                        title="View company details"
+                        className="flex items-center gap-4 min-w-0 text-left rounded-xl p-1 -m-1 hover:bg-bg-muted/50 transition-colors cursor-pointer group"
+                    >
+                        {account.logo_url ? (
+                            <img src={account.logo_url} alt={account.name ?? 'Account'} className="w-14 h-14 rounded-xl object-cover bg-bg-purple-50 shrink-0" />
+                        ) : (
+                            <div className="w-14 h-14 rounded-xl bg-bg-purple-50 flex items-center justify-center text-2xl font-bold text-primary shrink-0">
+                                {(account.name?.charAt(0) ?? '?').toUpperCase()}
+                            </div>
+                        )}
+                        <div className="min-w-0">
+                            <h3 className="font-sans font-semibold text-lg text-fg group-hover:text-primary transition-colors truncate">{account.name ?? 'Unnamed Account'}</h3>
+                            <p className="font-sans font-medium text-sm text-fg-body truncate">{account.domain ?? '—'} · {contacts.length} contact(s)</p>
                         </div>
-                    )}
-                    <div>
-                        <h3 className="font-sans font-semibold text-lg text-fg">{account.name ?? 'Unnamed Account'}</h3>
-                        <p className="font-sans font-medium text-sm text-fg-body">{account.domain ?? '—'} · {contacts.length} contact(s)</p>
+                        <FiChevronRight className="w-5 h-5 text-fg-muted group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
+                    </button>
+                ) : (
+                    <div className="flex items-center gap-4 min-w-0">
+                        {account.logo_url ? (
+                            <img src={account.logo_url} alt={account.name ?? 'Account'} className="w-14 h-14 rounded-xl object-cover bg-bg-purple-50 shrink-0" />
+                        ) : (
+                            <div className="w-14 h-14 rounded-xl bg-bg-purple-50 flex items-center justify-center text-2xl font-bold text-primary shrink-0">
+                                {(account.name?.charAt(0) ?? '?').toUpperCase()}
+                            </div>
+                        )}
+                        <div className="min-w-0">
+                            <h3 className="font-sans font-semibold text-lg text-fg truncate">{account.name ?? 'Unnamed Account'}</h3>
+                            <p className="font-sans font-medium text-sm text-fg-body truncate">{account.domain ?? '—'} · {contacts.length} contact(s)</p>
+                        </div>
                     </div>
-                </div>
+                )}
                 <div className="flex items-center gap-3">
                     <Button variant="outline" className="py-2 px-3 h-10" onClick={() => setIsFindModalOpen(true)}>
                         <FiSearch className="w-4 h-4" />

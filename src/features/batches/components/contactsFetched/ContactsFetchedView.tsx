@@ -1,20 +1,29 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useBatchAccounts } from '@/features/batches/hooks/useBatchAccounts';
+import { useBatchContacts } from '@/features/batches/hooks/useBatchContacts';
 import { useBatchOutreach } from '@/features/batches/hooks/useBatchOutreach';
+import { useDraftOutreach } from '@/features/batches/hooks/useDraftOutreach';
 import { useOutreachThread } from '@/features/batches/hooks/useOutreachThread';
 import { OutreachedAccountCard } from './OutreachedAccountCard';
-import type { OutreachConversation } from '@/features/batches/types/batchTypes';
+import { RemainingAccountCard } from './RemainingAccountCard';
+import type { Contact, OutreachConversation } from '@/features/batches/types/batchTypes';
 import { Modal, Button } from '@/shared/components/ui';
+import toast from 'react-hot-toast';
+import { getErrorMessage } from '@/shared/utils/errorHandler';
 
 interface Props {
   batchId: string;
 }
 
 export const ContactsFetchedView: React.FC<Props> = ({ batchId }) => {
+  const navigate = useNavigate();
   const { data: accounts, isLoading: loadingAccounts } = useBatchAccounts(batchId);
+  const { data: contacts, isLoading: loadingContacts } = useBatchContacts(batchId);
   const { data: outreach, isLoading: loadingOutreach, isError, error } = useBatchOutreach(batchId);
   const [selected, setSelected] = useState<OutreachConversation | null>(null);
   const { data: thread, isLoading: loadingThread } = useOutreachThread(selected?.id ?? null);
+  const draftOutreach = useDraftOutreach(batchId);
 
   const grouped = useMemo(() => {
     if (!accounts || !outreach) return [];
@@ -33,10 +42,139 @@ export const ContactsFetchedView: React.FC<Props> = ({ batchId }) => {
       .filter((g) => g.conversations.length > 0);
   }, [accounts, outreach]);
 
-  const isLoading = loadingAccounts || loadingOutreach;
+  // Accounts & contacts not yet outreached — visible so they can be outreached later
+  const remainingGroups = useMemo(() => {
+    if (!contacts) return [];
+    const outreachedIds = new Set((outreach || []).map((o) => o.contact_id).filter(Boolean));
+    const remaining = contacts.filter((ct) => !outreachedIds.has(ct.id));
+    if (remaining.length === 0) return [];
+    const byAccount = new Map<string, Contact[]>();
+    remaining.forEach((ct) => {
+      const list = byAccount.get(ct.account_id) || [];
+      list.push(ct);
+      byAccount.set(ct.account_id, list);
+    });
+    const groups: Array<{ account: { id: string; name: string; domain: string; logo_url: string | null }; contacts: Contact[] }> = [];
+    // Keep account order as returned by accounts API
+    (accounts || []).forEach((acc) => {
+      const list = byAccount.get(acc.id);
+      if (list && list.length > 0) {
+        groups.push({ account: { id: acc.id, name: acc.name, domain: acc.domain, logo_url: acc.logo_url }, contacts: list });
+        byAccount.delete(acc.id);
+      }
+    });
+    // Orphan contacts whose account is not in the accounts list
+    byAccount.forEach((list, accountId) => {
+      const first = list[0];
+      groups.push({
+        account: { id: accountId, name: first.account_name || 'Unnamed Account', domain: first.account_domain || '—', logo_url: null },
+        contacts: list,
+      });
+    });
+    return groups;
+  }, [accounts, contacts, outreach]);
+
+  const remainingCount = useMemo(() => remainingGroups.reduce((sum, g) => sum + g.contacts.length, 0), [remainingGroups]);
+
+  // Who to draft for — checkboxes, not all-or-none. Persisted per batch so it survives close/reopen.
+  const storageKey = `aurai:remaining-selection:${batchId}`;
+  const [selectedRemaining, setSelectedRemaining] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) {
+        const arr: unknown = JSON.parse(raw);
+        if (Array.isArray(arr)) return new Set(arr.filter((x): x is string => typeof x === 'string'));
+      }
+    } catch {
+      // Corrupt or unavailable storage — start fresh
+    }
+    return new Set();
+  });
+
+  // Reload persisted selection if the batch changes without remount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(`aurai:remaining-selection:${batchId}`);
+      if (raw) {
+        const arr: unknown = JSON.parse(raw);
+        if (Array.isArray(arr)) {
+          setSelectedRemaining(new Set(arr.filter((x): x is string => typeof x === 'string')));
+          return;
+        }
+      }
+      setSelectedRemaining(new Set());
+    } catch {
+      setSelectedRemaining(new Set());
+    }
+  }, [batchId]);
+
+  // Persist on every change
+  useEffect(() => {
+    try {
+      localStorage.setItem(storageKey, JSON.stringify([...selectedRemaining]));
+    } catch {
+      // Storage full or unavailable — selection just won't persist
+    }
+  }, [storageKey, selectedRemaining]);
+
+  // Prune selection when the remaining list changes (e.g. after drafting).
+  // Guard on contacts being loaded: while refetching on tab revisit, contacts is
+  // briefly undefined and remainingGroups is momentarily [] — pruning then would
+  // wipe (and persist) a valid persisted selection.
+  useEffect(() => {
+    if (contacts === undefined) return;
+    setSelectedRemaining((prev) => {
+      if (prev.size === 0) return prev;
+      const valid = new Set(remainingGroups.flatMap((g) => g.contacts.map((ct) => ct.id)));
+      const next = new Set([...prev].filter((id) => valid.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [remainingGroups, contacts]);
+
+  const handleToggleRemaining = (contactId: string) => {
+    setSelectedRemaining((prev) => {
+      const next = new Set(prev);
+      if (next.has(contactId)) next.delete(contactId);
+      else next.add(contactId);
+      return next;
+    });
+  };
+
+  const handleSelectAllRemaining = () => {
+    setSelectedRemaining(new Set(remainingGroups.flatMap((g) => g.contacts.map((ct) => ct.id))));
+  };
+
+  const handleClearRemainingSelection = () => {
+    setSelectedRemaining(new Set());
+  };
+
+  const selectedRemainingCount = selectedRemaining.size;
+  const allRemainingSelected = remainingCount > 0 && selectedRemainingCount === remainingCount;
+
+  const isLoading = loadingAccounts || loadingOutreach || loadingContacts;
 
   const handleViewConversation = (c: OutreachConversation) => {
     setSelected(c);
+  };
+
+  const handleDraftRemaining = async (contactIds: string[]) => {
+    if (contactIds.length === 0) {
+      toast.error('Select at least one contact to draft for');
+      return;
+    }
+    try {
+      const drafts = await draftOutreach.mutateAsync(contactIds);
+      const count = Array.isArray(drafts) ? drafts.length : contactIds.length;
+      setSelectedRemaining(new Set());
+      toast.success(`${count} draft(s) created — review and send from the Drafts page`);
+    } catch (e) {
+      toast.error(getErrorMessage(e));
+    }
+  };
+
+  const handleDraftSelected = () => {
+    const valid = new Set(remainingGroups.flatMap((g) => g.contacts.map((ct) => ct.id)));
+    handleDraftRemaining([...selectedRemaining].filter((id) => valid.has(id)));
   };
 
   if (isLoading) {
@@ -58,7 +196,7 @@ export const ContactsFetchedView: React.FC<Props> = ({ batchId }) => {
     );
   }
 
-  if (!outreach || outreach.length === 0) {
+  if ((!outreach || outreach.length === 0) && remainingGroups.length === 0) {
     return (
       <div className="bg-bg-sidebar border border-border rounded-xl shadow-sm p-12 flex flex-col items-center gap-3 text-center">
         <h3 className="font-sans font-semibold text-lg text-fg">No outreached contacts yet</h3>
@@ -72,19 +210,84 @@ export const ContactsFetchedView: React.FC<Props> = ({ batchId }) => {
   return (
     <div className="flex flex-col gap-6">
       {/* Outer container matching Figma: bg #F9FAFB border 1px #E5E7EB rounded 12px p-6 */}
-      <div className="bg-bg-sidebar border border-border rounded-xl shadow-sm p-6 flex flex-col gap-6">
-        <h3 className="font-sans font-semibold text-lg tracking-tight text-fg-alt">Accounts</h3>
-        <div className="flex flex-col gap-6">
-          {grouped.map(({ account, conversations }) => (
-            <OutreachedAccountCard
-              key={account.id}
-              account={account}
-              conversations={conversations}
-              onViewConversation={handleViewConversation}
-            />
-          ))}
+      {grouped.length > 0 && (
+        <div className="bg-bg-sidebar border border-border rounded-xl shadow-sm p-6 flex flex-col gap-6">
+          <h3 className="font-sans font-semibold text-lg tracking-tight text-fg-alt">Accounts</h3>
+          <div className="flex flex-col gap-6">
+            {grouped.map(({ account, conversations }) => (
+              <OutreachedAccountCard
+                key={account.id}
+                account={account}
+                conversations={conversations}
+                onViewConversation={handleViewConversation}
+              />
+            ))}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Accounts & contacts not yet outreached — kept visible so they can be outreached later */}
+      {remainingGroups.length > 0 && (
+        <div className="bg-bg-sidebar border border-border rounded-xl shadow-sm p-6 flex flex-col gap-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <h3 className="font-sans font-semibold text-lg tracking-tight text-fg-alt">Not yet outreached</h3>
+              <p className="font-sans text-sm text-fg-body">
+                {remainingCount} contact(s) across {remainingGroups.length} account(s) have no outreach yet. Check who to draft for, then send them from the Drafts page.
+              </p>
+              <button
+                type="button"
+                onClick={allRemainingSelected ? handleClearRemainingSelection : handleSelectAllRemaining}
+                className="self-start font-sans font-semibold text-xs text-primary hover:text-primary-dark transition-colors cursor-pointer"
+              >
+                {allRemainingSelected ? 'Clear selection' : 'Select all'}
+              </button>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+              <Button
+                variant="outline"
+                className="h-10 px-4 text-xs w-full sm:w-auto"
+                onClick={() => navigate(`/batches/${batchId}/draft`)}
+              >
+                Review drafts
+              </Button>
+              {selectedRemainingCount > 0 && (
+                <Button
+                  variant="primary"
+                  className="h-10 px-4 text-xs w-full sm:w-auto"
+                  onClick={handleDraftSelected}
+                  isLoading={draftOutreach.isPending}
+                  disabled={draftOutreach.isPending}
+                >
+                  Draft selected ({selectedRemainingCount})
+                </Button>
+              )}
+              <Button
+                variant="gradient"
+                className="h-10 px-4 text-xs w-full sm:w-auto"
+                onClick={() => handleDraftRemaining(remainingGroups.flatMap((g) => g.contacts.map((ct) => ct.id)))}
+                isLoading={draftOutreach.isPending}
+                disabled={draftOutreach.isPending}
+              >
+                Draft all remaining ({remainingCount})
+              </Button>
+            </div>
+          </div>
+          <div className="flex flex-col gap-6">
+            {remainingGroups.map(({ account, contacts: groupContacts }) => (
+              <RemainingAccountCard
+                key={account.id}
+                account={account}
+                contacts={groupContacts}
+                onDraft={handleDraftRemaining}
+                isDrafting={draftOutreach.isPending}
+                selectedIds={selectedRemaining}
+                onToggleSelect={handleToggleRemaining}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* View Conversation Modal — integrated with GET /outreach/conversations/{id}/thread */}
       <Modal isOpen={!!selected} onClose={() => setSelected(null)} title={selected ? `${selected.first_name} ${selected.last_name} — Conversation` : 'Conversation'}>
