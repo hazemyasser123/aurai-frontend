@@ -61,7 +61,7 @@ export const IcpPanel: React.FC<Props> = ({ data, onChange, productId }) => {
           currentIcp={data as unknown as Record<string, unknown>}
           onApply={handleApply}
           chatFn={({ message, current_icp }) => productApi.chatIcp(productId, { message, current_icp })}
-          title="ICB Assistant"
+          title="ICP Assistant"
         />
       )}
     </div>

@@ -92,27 +92,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                             );
                         })}
                         {isAdmin && (
-                            <>
-                                <NavLink
-                                    to="/users"
-                                    onClick={onClose}
-                                    className={`flex items-center gap-3 px-6 py-3 font-sans font-medium text-sm tracking-tight transition-colors ${isActive('/users') ? 'bg-bg-purple-soft text-fg' : 'text-fg-body hover:bg-bg-muted/50'
-                                        }`}
-                                >
-                                    <FiUsers className="w-4.5 h-4.5" strokeWidth={1.5} />
-                                    <span>Users</span>
-                                </NavLink>
-                                <NavLink
-                                    to="/prompt-lab"
-                                    onClick={onClose}
-                                    className={`flex items-center gap-3 px-6 py-3 font-sans font-medium text-sm tracking-tight transition-colors ${isActive('/prompt-lab') ? 'bg-bg-purple-soft text-fg' : 'text-fg-body hover:bg-bg-muted/50'
-                                        }`}
-                                >
-                                    <FiEdit3 className="w-4.5 h-4.5" strokeWidth={1.5} />
-                                    <span>Prompt Lab</span>
-                                </NavLink>
-                            </>
+                            <NavLink
+                                to="/users"
+                                onClick={onClose}
+                                className={`flex items-center gap-3 px-6 py-3 font-sans font-medium text-sm tracking-tight transition-colors ${isActive('/users') ? 'bg-bg-purple-soft text-fg' : 'text-fg-body hover:bg-bg-muted/50'
+                                    }`}
+                            >
+                                <FiUsers className="w-4.5 h-4.5" strokeWidth={1.5} />
+                                <span>Users</span>
+                            </NavLink>
                         )}
+                        <NavLink
+                            to="/prompt-lab"
+                            onClick={onClose}
+                            className={`flex items-center gap-3 px-6 py-3 font-sans font-medium text-sm tracking-tight transition-colors ${isActive('/prompt-lab') ? 'bg-bg-purple-soft text-fg' : 'text-fg-body hover:bg-bg-muted/50'
+                                }`}
+                        >
+                            <FiEdit3 className="w-4.5 h-4.5" strokeWidth={1.5} />
+                            <span>Prompt Lab</span>
+                        </NavLink>
                     </nav>
                 </div>
 

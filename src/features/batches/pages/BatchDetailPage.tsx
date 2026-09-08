@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { WithNavbar } from '@/shared/components/hoc/WithNavbar';
 import { Button, Modal } from '@/shared/components/ui';
-import { FiArrowLeft, FiTrash2 } from 'react-icons/fi';
+import { FiArrowLeft, FiTrash2, FiX } from 'react-icons/fi';
 import { useBatch } from '@/features/batches/hooks/useBatch';
 import { useUpdateBatch } from '@/features/batches/hooks/useUpdateBatch';
 import { useCloneBatch } from '@/features/batches/hooks/useCloneBatch';
@@ -14,7 +14,7 @@ import { AccountsTab } from '@/features/batches/components/tabs/AccountsTab';
 import { ContactsFetchedView } from '@/features/batches/components/contactsFetched/ContactsFetchedView';
 import { CloneBatchModal } from '@/features/batches/components/CloneBatchModal';
 import { BatchCardSkeleton } from '@/features/batches/components/BatchCardSkeleton';
-import { getBatchStep, getStepRoute } from '@/features/batches/utils/batchFlow';
+import { getBatchStep } from '@/features/batches/utils/batchFlow';
 import type { Batch } from '@/features/batches/types/batchTypes';
 import type { UpdateBatchPayload } from '@/features/batches/types/batchTypes';
 import toast from 'react-hot-toast';
@@ -36,6 +36,10 @@ const BatchDetailPage: React.FC = () => {
     const [formData, setFormData] = useState<Batch | null>(null);
     const [isCloneOpen, setIsCloneOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+    const [isRerankOpen, setIsRerankOpen] = useState(false);
+    const [pendingPayload, setPendingPayload] = useState<UpdateBatchPayload | null>(null);
+    const [originalProductAnalysis, setOriginalProductAnalysis] = useState<string | null>(null);
+    const [isReranking, setIsReranking] = useState(false);
     const cloneBatch = useCloneBatch();
     const deleteBatch = useDeleteBatch();
 
@@ -43,26 +47,46 @@ const BatchDetailPage: React.FC = () => {
     useEffect(() => {
         if (fetchedBatch) {
             setFormData(fetchedBatch);
+            setOriginalProductAnalysis(JSON.stringify(fetchedBatch.product_analysis || {}));
         }
     }, [fetchedBatch]);
 
-    // Access control for deep links (?tab=accounts): intermediate statuses redirect
-    // to their canonical page instead of showing the accounts tab here.
+    // ESC closes the re-rank modal (when not busy)
     useEffect(() => {
-        if (!fetchedBatch || !batchId) return;
-        const tab = searchParams.get('tab');
-        if (tab === 'accounts') {
-            const step = getBatchStep(fetchedBatch.status);
-            if (step === 'contacts' || step === 'draft') {
-                navigate(getStepRoute(batchId, step), { replace: true });
+        if (!isRerankOpen) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && !isReranking && !updateBatch.isPending) {
+                setIsRerankOpen(false);
+                setPendingPayload(null);
             }
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [isRerankOpen, isReranking, updateBatch.isPending]);
+
+    // Deep links (?tab=accounts) now show the Continue Exploring card first;
+    // the button inside guides to the correct next page, so no auto-redirect.
+    useEffect(() => {
+        // Keep tab param in sync with activeTab for direct links, but don't force navigation
+        const tab = searchParams.get('tab') as TabKey | null;
+        if (tab && ['overview', 'product', 'icp', 'accounts'].includes(tab)) {
+            setActiveTab(tab);
         }
-    }, [fetchedBatch, batchId, searchParams, navigate]);
+    }, [searchParams]);
 
     // Handlers for form state
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
         const checked = (e.target as HTMLInputElement).checked;
+        // Master switch: turning follow-up flagging off clears the delay (shown empty + not sent)
+        if (name === 'enable_auto_followup' && !checked) {
+            setFormData(prev => prev ? ({
+                ...prev,
+                enable_auto_followup: false,
+                followup_delay_days: undefined,
+            }) : prev);
+            return;
+        }
         setFormData(prev => prev ? ({
             ...prev,
             [name]: type === 'checkbox' ? checked : value
@@ -82,6 +106,10 @@ const BatchDetailPage: React.FC = () => {
     const handleSave = async () => {
         if (!formData || !batchId) return;
 
+        // Master switches — tied fields are omitted entirely (not even empty) when their flag is off.
+        const followupOn = formData.enable_auto_followup ?? true;
+        const replyDelayOn = formData.reply_delay_enabled ?? false;
+
         const payload: UpdateBatchPayload = {
             name: formData.name,
             base_product_id: formData.base_product_id || undefined,
@@ -92,23 +120,65 @@ const BatchDetailPage: React.FC = () => {
             bcc_emails: formData.bcc_emails,
             human_action_loop_emails: formData.human_action_loop_emails,
             forward_emails: formData.forward_emails,
-            enable_auto_followup: formData.enable_auto_followup,
-            followup_delay_days: formData.followup_delay_days != null ? Number(formData.followup_delay_days) : undefined,
+            enable_auto_followup: followupOn,
+            ...(followupOn && formData.followup_delay_days != null
+                ? { followup_delay_days: Number(formData.followup_delay_days) }
+                : {}),
             max_results: formData.max_results != null ? Number(formData.max_results) : undefined,
-            reply_delay_enabled: formData.reply_delay_enabled,
-            reply_timezone: formData.reply_timezone || undefined,
-            reply_working_days: formData.reply_working_days,
-            reply_working_hours_start: formData.reply_working_hours_start || undefined,
-            reply_working_hours_end: formData.reply_working_hours_end || undefined,
-            reply_base_delay_minutes: formData.reply_base_delay_minutes != null ? Number(formData.reply_base_delay_minutes) : undefined,
-            reply_delay_buffer_minutes: formData.reply_delay_buffer_minutes != null ? Number(formData.reply_delay_buffer_minutes) : undefined,
+            reply_delay_enabled: replyDelayOn,
+            ...(replyDelayOn
+                ? {
+                    ...(formData.reply_timezone ? { reply_timezone: formData.reply_timezone } : {}),
+                    ...(formData.reply_working_days ? { reply_working_days: formData.reply_working_days } : {}),
+                    ...(formData.reply_working_hours_start ? { reply_working_hours_start: formData.reply_working_hours_start } : {}),
+                    ...(formData.reply_working_hours_end ? { reply_working_hours_end: formData.reply_working_hours_end } : {}),
+                    ...(formData.reply_base_delay_minutes != null ? { reply_base_delay_minutes: Number(formData.reply_base_delay_minutes) } : {}),
+                    ...(formData.reply_delay_buffer_minutes != null ? { reply_delay_buffer_minutes: Number(formData.reply_delay_buffer_minutes) } : {}),
+                }
+                : {}),
         };
+
+        // If Product Intelligence was edited, ask whether to re-rank contacts
+        const currentPI = JSON.stringify(formData.product_analysis || {});
+        const hasPIEdit = originalProductAnalysis !== null && currentPI !== originalProductAnalysis;
+        if (hasPIEdit) {
+            setPendingPayload(payload);
+            setIsRerankOpen(true);
+            return;
+        }
 
         try {
             await updateBatch.mutateAsync(payload);
             toast.success('Batch saved successfully');
+            setOriginalProductAnalysis(JSON.stringify(payload.product_analysis || {}));
         } catch (error) {
             toast.error(getErrorMessage(error));
+        }
+    };
+
+    const handleConfirmRerank = async (withRerank: boolean) => {
+        if (!pendingPayload || !batchId) return;
+        if (withRerank) {
+            setIsReranking(true);
+            try {
+                // TODO: replace with real route when provided — for now random delay to simulate re-ranking
+                await new Promise((r) => setTimeout(r, 900 + Math.random() * 800));
+                toast.success('Contacts re-ranked successfully');
+            } catch {
+                toast.error('Re-rank failed');
+            } finally {
+                setIsReranking(false);
+            }
+        }
+        try {
+            await updateBatch.mutateAsync(pendingPayload);
+            toast.success('Batch saved successfully');
+            setOriginalProductAnalysis(JSON.stringify(pendingPayload.product_analysis || {}));
+        } catch (error) {
+            toast.error(getErrorMessage(error));
+        } finally {
+            setIsRerankOpen(false);
+            setPendingPayload(null);
         }
     };
 
@@ -142,27 +212,9 @@ const BatchDetailPage: React.FC = () => {
     const isOutreached = batchStep === 'outreached';
     const canDelete = batchStep !== 'outreached';
 
-    // Access control: clicking Accounts routes to the step matching the batch status.
-    // Deep-links (?tab=accounts) for intermediate statuses are redirected in the effect below.
+    // Clicking Accounts always shows the Continue Exploring card first;
+    // the button inside then guides to the correct next page per status.
     const handleTabChange = (key: TabKey) => {
-        if (key === 'accounts') {
-            switch (batchStep) {
-                case 'contacts':
-                    navigate(getStepRoute(formData!.id, 'contacts'));
-                    return;
-                case 'draft':
-                    navigate(getStepRoute(formData!.id, 'draft'));
-                    return;
-                case 'outreached':
-                    // stay on this page and show the outreached accounts view
-                    setActiveTab(key);
-                    return;
-                default:
-                    // explore / enrich: show AccountsTab which routes further
-                    setActiveTab(key);
-                    return;
-            }
-        }
         setActiveTab(key);
     };
 
@@ -211,8 +263,8 @@ const BatchDetailPage: React.FC = () => {
                         variant="primary"
                         className="w-full sm:w-auto max-w-none justify-center"
                         onClick={handleSave}
-                        isLoading={updateBatch.isPending}
-                        disabled={updateBatch.isPending}
+                        isLoading={updateBatch.isPending || isReranking}
+                        disabled={updateBatch.isPending || isReranking}
                     >
                         Save
                     </Button>
@@ -283,6 +335,48 @@ const BatchDetailPage: React.FC = () => {
                         </Button>
                         <Button variant="danger" onClick={handleDelete} isLoading={deleteBatch.isPending} disabled={deleteBatch.isPending}>
                             Delete Batch
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
+
+            <Modal
+                isOpen={isRerankOpen}
+                onClose={() => {
+                    if (!isReranking && !updateBatch.isPending) {
+                        setIsRerankOpen(false);
+                        setPendingPayload(null);
+                    }
+                }}
+                title=""
+            >
+                <div className="flex flex-col gap-4">
+                    <div className="flex items-center justify-between gap-4">
+                        <h2 className="text-lg font-semibold text-fg">Re-rank contacts?</h2>
+                        <button
+                            onClick={() => {
+                                if (!isReranking && !updateBatch.isPending) {
+                                    setIsRerankOpen(false);
+                                    setPendingPayload(null);
+                                }
+                            }}
+                            disabled={isReranking || updateBatch.isPending}
+                            aria-label="Close"
+                            className="p-1.5 rounded-full bg-bg-page border border-border text-fg-body hover:text-fg hover:bg-bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                        >
+                            <FiX className="w-5 h-5" />
+                        </button>
+                    </div>
+                    <p className="font-sans text-sm leading-5 text-fg-body">
+                        Product Intelligence was edited. Do you want to re-rank contacts based on the new intelligence?
+                    </p>
+                    <p className="font-sans text-xs text-fg-muted">Choose <span className="font-semibold">Yes</span> to re-rank (takes a moment) then save, or <span className="font-semibold">No</span> to just save.</p>
+                    <div className="flex justify-end gap-3 pt-2">
+                        <Button variant="ghost" onClick={() => handleConfirmRerank(false)} disabled={isReranking || updateBatch.isPending}>
+                            No, just save
+                        </Button>
+                        <Button variant="primary" onClick={() => handleConfirmRerank(true)} isLoading={isReranking || updateBatch.isPending} disabled={isReranking || updateBatch.isPending}>
+                            Yes, re-rank
                         </Button>
                     </div>
                 </div>

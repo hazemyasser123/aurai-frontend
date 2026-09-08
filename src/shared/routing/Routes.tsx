@@ -48,7 +48,7 @@ export const AppRoutes: AppRoute[] = [
     { path: '/batches/:batchId/draft', Component: DraftMessagesPage, protected: true },
     { path: '/conversations', Component: ConversationsPage, protected: true },
     { path: '/users', Component: UsersPage, protected: true, allowedRoles: ['ADMIN'] },
-    { path: '/prompt-lab', Component: PromptLabPage, protected: true, allowedRoles: ['ADMIN'] },
+    { path: '/prompt-lab', Component: PromptLabPage, protected: true },
     // Example protected route:
     // { path: '/users', Component: UsersListPage, protected: true, allowedRoles: ['ADMIN'] }
 ];

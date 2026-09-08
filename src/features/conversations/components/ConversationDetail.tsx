@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FiArrowLeft } from 'react-icons/fi';
 import { Button } from '@/shared/components/ui';
+import { SafeHtml } from './SafeHtml';
 import type { Conversation } from '@/features/batches/types/batchTypes';
 import { getStatusBadge, getClassificationBadge, getHumanActionBadge, getFollowupBadge } from './badgeStyles';
 import { MessageBubble } from './MessageBubble';
@@ -183,10 +184,10 @@ export const ConversationDetail: React.FC<Props> = ({ conversation: c, onBack })
           </div>
         ) : (
           <>
-            {/* Original cold email that started the thread */}
+            {/* Original cold email that started the thread — outbound (our side), so right-aligned */}
             {thread?.email && (
-              <div className="flex flex-col gap-1.5 items-start w-full">
-                <div className="flex flex-col rounded-xl overflow-hidden border border-border shadow-sm bg-white max-w-[640px] w-full">
+              <div className="flex flex-col gap-1.5 items-end w-full">
+                <div className="flex flex-col rounded-xl overflow-hidden border border-primary/15 shadow-sm bg-white max-w-[640px] w-full">
                   {/* Mail header —From / To / Subject / Date */}
                   <div className="px-4 py-3 bg-[#F8FAFC] border-b border-border flex flex-col gap-1.5">
                     <div className="flex items-center justify-between gap-3">
@@ -210,10 +211,10 @@ export const ConversationDetail: React.FC<Props> = ({ conversation: c, onBack })
                       Subject: {thread.email.subject || thread.subject || c.subject || '—'}
                     </div>
                   </div>
-                  {/* Mail body — HTML, p as new line, icons in one row */}
-                  <div
+                  {/* Mail body — HTML, p as new line, icons in one row, unloadable images fall back to alt */}
+                  <SafeHtml
+                    html={thread.email.body || ''}
                     className="p-4 bg-white font-sans font-normal text-sm leading-6 tracking-tight text-fg break-words prose prose-sm max-w-none prose-p:my-3 prose-p:block [&_p]:my-3 [&_p]:block [&_a]:text-primary [&_a]:underline [&_img]:inline-block [&_table]:w-full [&_table]:border-collapse"
-                    dangerouslySetInnerHTML={{ __html: thread.email.body || '' }}
                   />
                   <div className="px-4 py-2 bg-slate-50/60 border-t border-border/50 flex items-center justify-between">
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/15">Outbound • Original</span>

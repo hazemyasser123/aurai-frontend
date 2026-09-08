@@ -58,13 +58,13 @@ export const IcpTab: React.FC<IcpTabProps> = ({ data, onChange, batchId }) => {
                 <TagInput label="Target Company Characteristics" values={data.company_characteristics || []} onChange={(vals) => onChange('company_characteristics', vals)} />
             </Card>
 
-            {/* ICB Assistant — per-session chat, Apply updates form without API call, Save persists */}
+            {/* ICP Assistant — per-session chat, Apply updates form without API call, Save persists */}
             {batchId && (
                 <IcpChatAssistant
                     currentIcp={data as unknown as Record<string, unknown>}
                     onApply={handleApply}
                     chatFn={({ message, current_icp }) => batchApi.chatIcp(batchId, { message, current_icp })}
-                    title="ICB Assistant"
+                    title="ICP Assistant"
                 />
             )}
         </div>

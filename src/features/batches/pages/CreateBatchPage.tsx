@@ -35,7 +35,7 @@ const CreateBatchPage: React.FC = () => {
         human_action_loop_emails: '',
         forward_emails: '', // Changed to plural
         enable_auto_followup: true,
-        followup_delay_days: 5,
+        followup_delay_days: 5 as number | '',
         reply_delay_enabled: false,
         reply_timezone: 'UTC',
         reply_working_days: [0, 1, 2, 3, 4, 5, 6] as number[],
@@ -64,6 +64,22 @@ const CreateBatchPage: React.FC = () => {
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
         const checked = (e.target as HTMLInputElement).checked;
+        // Master switch: turning follow-up flagging off empties + disables the delay
+        if (name === 'enable_auto_followup') {
+            setErrors((prev) => {
+                const next = { ...prev };
+                delete next.followup_delay_days;
+                return next;
+            });
+            setFormData((prev) => ({
+                ...prev,
+                enable_auto_followup: checked,
+                followup_delay_days: checked
+                    ? (prev.followup_delay_days === '' || prev.followup_delay_days == null ? 5 : prev.followup_delay_days)
+                    : '',
+            }));
+            return;
+        }
         setFormData(prev => ({
             ...prev,
             [name]: type === 'checkbox' ? checked : value
@@ -79,7 +95,19 @@ const CreateBatchPage: React.FC = () => {
         e.preventDefault();
         setErrors({});
 
-        const validation = createBatchSchema.safeParse(formData);
+        // Tied fields are not validated when their master flag is off — they won't be sent at all
+        const toValidate: Record<string, unknown> = { ...formData };
+        if (!formData.enable_auto_followup) delete toValidate.followup_delay_days;
+        if (!formData.reply_delay_enabled) {
+            delete toValidate.reply_timezone;
+            delete toValidate.reply_working_days;
+            delete toValidate.reply_working_hours_start;
+            delete toValidate.reply_working_hours_end;
+            delete toValidate.reply_base_delay_minutes;
+            delete toValidate.reply_delay_buffer_minutes;
+        }
+
+        const validation = createBatchSchema.safeParse(toValidate);
 
         if (!validation.success) {
             const mappedErrors: Record<string, string> = {};
@@ -102,14 +130,19 @@ const CreateBatchPage: React.FC = () => {
             human_action_loop_emails: parseEmails(validation.data.human_action_loop_emails || ''),
             forward_emails: parseEmails(validation.data.forward_emails || ''), // Fixed mapping
             enable_auto_followup: validation.data.enable_auto_followup,
-            followup_delay_days: validation.data.followup_delay_days,
+            // Tied fields are omitted entirely (not even empty) when their flag is off
+            ...(validation.data.enable_auto_followup ? { followup_delay_days: validation.data.followup_delay_days } : {}),
             reply_delay_enabled: validation.data.reply_delay_enabled,
-            reply_timezone: validation.data.reply_timezone,
-            reply_working_days: validation.data.reply_working_days,
-            reply_working_hours_start: validation.data.reply_working_hours_start,
-            reply_working_hours_end: validation.data.reply_working_hours_end,
-            reply_base_delay_minutes: validation.data.reply_base_delay_minutes,
-            reply_delay_buffer_minutes: validation.data.reply_delay_buffer_minutes,
+            ...(validation.data.reply_delay_enabled
+                ? {
+                    reply_timezone: validation.data.reply_timezone,
+                    reply_working_days: validation.data.reply_working_days,
+                    reply_working_hours_start: validation.data.reply_working_hours_start,
+                    reply_working_hours_end: validation.data.reply_working_hours_end,
+                    reply_base_delay_minutes: validation.data.reply_base_delay_minutes,
+                    reply_delay_buffer_minutes: validation.data.reply_delay_buffer_minutes,
+                }
+                : {}),
         };
 
         try {
@@ -336,7 +369,8 @@ const CreateBatchPage: React.FC = () => {
                                     value={formData.followup_delay_days}
                                     onChange={handleChange}
                                     error={errors.followup_delay_days}
-                                    hint="Days after the last outbound send before a conversation is flagged Needs Follow-up."
+                                    disabled={!formData.enable_auto_followup}
+                                    hint={formData.enable_auto_followup ? "Days after the last outbound send before a conversation is flagged Needs Follow-up." : "Enable auto follow-up flagging to set a delay."}
                                 />
                             </div>
                         </div>
@@ -372,14 +406,15 @@ const CreateBatchPage: React.FC = () => {
                             {/* Timezone */}
                             <div className="flex flex-col gap-1.5">
                                 <span className="font-sans font-semibold text-xs tracking-widest text-[#7F22FE]">TIMEZONE (IANA)</span>
-                                <div className={`flex items-center gap-2 px-4 py-2.5 bg-bg-input border rounded-lg ${errors.reply_timezone ? 'border-danger' : 'border-border/60'} transition-colors`}>
+                                <div className={`flex items-center gap-2 px-4 py-2.5 bg-bg-input border rounded-lg ${formData.reply_delay_enabled ? '' : 'opacity-60'} ${errors.reply_timezone ? 'border-danger' : 'border-border/60'} transition-colors`}>
                                     <input
                                         name="reply_timezone"
                                         id="reply_timezone"
                                         value={formData.reply_timezone}
                                         onChange={handleChange}
                                         placeholder="UTC"
-                                        className="flex-1 bg-transparent outline-none font-sans font-medium text-sm text-fg placeholder:text-fg-muted"
+                                        disabled={!formData.reply_delay_enabled}
+                                        className="flex-1 bg-transparent outline-none font-sans font-medium text-sm text-fg placeholder:text-fg-muted disabled:cursor-not-allowed"
                                     />
                                 </div>
                                 {errors.reply_timezone && <span className="font-sans text-xs text-danger">{errors.reply_timezone}</span>}
@@ -403,6 +438,7 @@ const CreateBatchPage: React.FC = () => {
                                             <button
                                                 key={d.v}
                                                 type="button"
+                                                disabled={!formData.reply_delay_enabled}
                                                 onClick={() =>
                                                     setFormData((prev) => ({
                                                         ...prev,
@@ -411,7 +447,7 @@ const CreateBatchPage: React.FC = () => {
                                                             : [...prev.reply_working_days, d.v].sort((a, b) => a - b),
                                                     }))
                                                 }
-                                                className={`px-3 py-1.5 rounded-lg border font-sans font-medium text-xs tracking-tight transition-[transform,background-color,color,border-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] ${selected
+                                                className={`px-3 py-1.5 rounded-lg border font-sans font-medium text-xs tracking-tight transition-[transform,background-color,color,border-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100 ${selected
                                                     ? 'bg-[#EDE9FF] border-[#DDD6FF] text-[#7F22FE]'
                                                     : 'bg-bg-input border-border/60 text-fg-body hover:border-border'
                                                     }`}
@@ -430,10 +466,11 @@ const CreateBatchPage: React.FC = () => {
                                     <span className="font-sans font-semibold text-xs tracking-widest text-[#7F22FE]">HOURS START</span>
                                     <div
                                         onClick={(e) => {
+                                            if (!formData.reply_delay_enabled) return;
                                             const inp = e.currentTarget.querySelector('input') as HTMLInputElement | null;
                                             try { (inp as unknown as { showPicker?: () => void })?.showPicker?.(); } catch { inp?.focus(); }
                                         }}
-                                        className={`relative flex items-center bg-bg-input border rounded-lg cursor-pointer ${errors.reply_working_hours_start ? 'border-danger' : 'border-border/60'} hover:border-border transition-colors`}
+                                        className={`relative flex items-center bg-bg-input border rounded-lg ${formData.reply_delay_enabled ? 'cursor-pointer' : 'opacity-60 cursor-not-allowed'} ${errors.reply_working_hours_start ? 'border-danger' : 'border-border/60'} hover:border-border transition-colors`}
                                     >
                                         <input
                                             type="time"
@@ -441,8 +478,9 @@ const CreateBatchPage: React.FC = () => {
                                             id="reply_working_hours_start"
                                             value={formData.reply_working_hours_start}
                                             onChange={handleChange}
+                                            disabled={!formData.reply_delay_enabled}
                                             onClick={(e) => { try { (e.currentTarget as unknown as { showPicker?: () => void }).showPicker?.(); } catch { /* ignore */ } }}
-                                            className="flex-1 px-4 py-2.5 bg-transparent outline-none font-sans font-medium text-sm text-fg cursor-pointer"
+                                            className="flex-1 px-4 py-2.5 bg-transparent outline-none font-sans font-medium text-sm text-fg cursor-pointer disabled:cursor-not-allowed"
                                         />
                                     </div>
                                     {errors.reply_working_hours_start && <span className="font-sans text-xs text-danger">{errors.reply_working_hours_start}</span>}
@@ -451,10 +489,11 @@ const CreateBatchPage: React.FC = () => {
                                     <span className="font-sans font-semibold text-xs tracking-widest text-[#7F22FE]">HOURS END</span>
                                     <div
                                         onClick={(e) => {
+                                            if (!formData.reply_delay_enabled) return;
                                             const inp = e.currentTarget.querySelector('input') as HTMLInputElement | null;
                                             try { (inp as unknown as { showPicker?: () => void })?.showPicker?.(); } catch { inp?.focus(); }
                                         }}
-                                        className={`relative flex items-center bg-bg-input border rounded-lg cursor-pointer ${errors.reply_working_hours_end ? 'border-danger' : 'border-border/60'} hover:border-border transition-colors`}
+                                        className={`relative flex items-center bg-bg-input border rounded-lg ${formData.reply_delay_enabled ? 'cursor-pointer' : 'opacity-60 cursor-not-allowed'} ${errors.reply_working_hours_end ? 'border-danger' : 'border-border/60'} hover:border-border transition-colors`}
                                     >
                                         <input
                                             type="time"
@@ -462,8 +501,9 @@ const CreateBatchPage: React.FC = () => {
                                             id="reply_working_hours_end"
                                             value={formData.reply_working_hours_end}
                                             onChange={handleChange}
+                                            disabled={!formData.reply_delay_enabled}
                                             onClick={(e) => { try { (e.currentTarget as unknown as { showPicker?: () => void }).showPicker?.(); } catch { /* ignore */ } }}
-                                            className="flex-1 px-4 py-2.5 bg-transparent outline-none font-sans font-medium text-sm text-fg cursor-pointer"
+                                            className="flex-1 px-4 py-2.5 bg-transparent outline-none font-sans font-medium text-sm text-fg cursor-pointer disabled:cursor-not-allowed"
                                         />
                                     </div>
                                     {errors.reply_working_hours_end && <span className="font-sans text-xs text-danger">{errors.reply_working_hours_end}</span>}
@@ -474,7 +514,7 @@ const CreateBatchPage: React.FC = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="flex flex-col gap-1.5">
                                     <span className="font-sans font-semibold text-xs tracking-widest text-[#7F22FE]">BASE DELAY (MIN)</span>
-                                    <div className={`flex items-center bg-bg-input border rounded-lg ${errors.reply_base_delay_minutes ? 'border-danger' : 'border-border/60'}`}>
+                                    <div className={`flex items-center bg-bg-input border rounded-lg ${formData.reply_delay_enabled ? '' : 'opacity-60'} ${errors.reply_base_delay_minutes ? 'border-danger' : 'border-border/60'}`}>
                                         <input
                                             type="number"
                                             name="reply_base_delay_minutes"
@@ -482,14 +522,15 @@ const CreateBatchPage: React.FC = () => {
                                             value={formData.reply_base_delay_minutes}
                                             onChange={handleChange}
                                             min={0}
-                                            className="flex-1 px-4 py-2.5 bg-transparent outline-none font-sans font-medium text-sm text-fg"
+                                            disabled={!formData.reply_delay_enabled}
+                                            className="flex-1 px-4 py-2.5 bg-transparent outline-none font-sans font-medium text-sm text-fg disabled:cursor-not-allowed"
                                         />
                                     </div>
                                     {errors.reply_base_delay_minutes && <span className="font-sans text-xs text-danger">{errors.reply_base_delay_minutes}</span>}
                                 </div>
                                 <div className="flex flex-col gap-1.5">
                                     <span className="font-sans font-semibold text-xs tracking-widest text-[#7F22FE]">RANDOM BUFFER (MIN)</span>
-                                    <div className={`flex items-center bg-bg-input border rounded-lg ${errors.reply_delay_buffer_minutes ? 'border-danger' : 'border-border/60'}`}>
+                                    <div className={`flex items-center bg-bg-input border rounded-lg ${formData.reply_delay_enabled ? '' : 'opacity-60'} ${errors.reply_delay_buffer_minutes ? 'border-danger' : 'border-border/60'}`}>
                                         <input
                                             type="number"
                                             name="reply_delay_buffer_minutes"
@@ -497,7 +538,8 @@ const CreateBatchPage: React.FC = () => {
                                             value={formData.reply_delay_buffer_minutes}
                                             onChange={handleChange}
                                             min={0}
-                                            className="flex-1 px-4 py-2.5 bg-transparent outline-none font-sans font-medium text-sm text-fg"
+                                            disabled={!formData.reply_delay_enabled}
+                                            className="flex-1 px-4 py-2.5 bg-transparent outline-none font-sans font-medium text-sm text-fg disabled:cursor-not-allowed"
                                         />
                                     </div>
                                     {errors.reply_delay_buffer_minutes && <span className="font-sans text-xs text-danger">{errors.reply_delay_buffer_minutes}</span>}

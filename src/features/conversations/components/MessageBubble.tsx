@@ -1,5 +1,6 @@
 import React from 'react';
 import type { OutreachMessage } from '@/features/batches/types/batchTypes';
+import { SafeHtml } from './SafeHtml';
 
 interface Props {
   message: OutreachMessage;
@@ -72,12 +73,12 @@ export const MessageBubble: React.FC<Props> = ({ message, prospectName }) => {
 
         {/* Mail body — HTML with p as new line, icons in one row */}
         <div className="p-4 bg-white">
-          {isHtml ? (
-            <div
-              className="font-sans font-normal text-sm leading-6 tracking-tight text-fg break-words prose prose-sm max-w-none prose-p:my-3 prose-p:block [&_p]:my-3 [&_p]:block [&_a]:text-primary [&_a]:underline [&_img]:inline-block [&_table]:w-full [&_table]:border-collapse"
-              dangerouslySetInnerHTML={{ __html: rawHtml }}
-            />
-          ) : (
+        {isHtml ? (
+          <SafeHtml
+            html={rawHtml}
+            className="font-sans font-normal text-sm leading-6 tracking-tight text-fg break-words prose prose-sm max-w-none prose-p:my-3 prose-p:block [&_p]:my-3 [&_p]:block [&_a]:text-primary [&_a]:underline [&_img]:inline-block [&_table]:w-full [&_table]:border-collapse"
+          />
+        ) : (
             <div className="font-sans font-normal text-sm leading-6 tracking-tight text-fg whitespace-pre-wrap break-words">
               {rawHtml}
             </div>

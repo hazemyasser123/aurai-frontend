@@ -40,6 +40,11 @@ export const BatchOverviewTab: React.FC<BatchOverviewTabProps> = ({ formData, ha
     const isLocked = lower !== 'draft';
     const lockedHint = isLocked ? `Locked because batch status is "${formData.status}" (editable only while Draft).` : undefined;
 
+    // Master switches — tied fields are disabled (and omitted on save) when off.
+    // Missing flags default to backend behavior: follow-up on, reply delay off.
+    const followupOn = formData.enable_auto_followup ?? true;
+    const replyDelayOn = formData.reply_delay_enabled ?? false;
+
     return (
         <div className="flex flex-col gap-6">
             {/* Batch Details Card */}
@@ -182,8 +187,10 @@ export const BatchOverviewTab: React.FC<BatchOverviewTabProps> = ({ formData, ha
                                 label="Follow-up Delay (Days)"
                                 type="number"
                                 name="followup_delay_days"
-                                value={formData.followup_delay_days || 5}
+                                value={followupOn ? (formData.followup_delay_days || 5) : ''}
                                 onChange={handleChange}
+                                disabled={!followupOn}
+                                hint={followupOn ? undefined : 'Enable auto follow-up flagging to set a delay.'}
                             />
                         </div>
                     </div>
@@ -219,14 +226,15 @@ export const BatchOverviewTab: React.FC<BatchOverviewTabProps> = ({ formData, ha
                         {/* Timezone */}
                         <div className="flex flex-col gap-1.5">
                             <span className="font-sans font-semibold text-xs tracking-widest text-[#7F22FE]">TIMEZONE (IANA)</span>
-                            <div className="flex items-center gap-2 px-4 py-2.5 bg-bg-input border rounded-lg border-border/60 transition-colors">
+                            <div className={`flex items-center gap-2 px-4 py-2.5 bg-bg-input border rounded-lg border-border/60 transition-colors ${replyDelayOn ? '' : 'opacity-60'}`}>
                                 <input
                                     name="reply_timezone"
                                     id="reply_timezone"
                                     value={formData.reply_timezone || 'UTC'}
                                     onChange={handleChange}
                                     placeholder="UTC"
-                                    className="flex-1 bg-transparent outline-none font-sans font-medium text-sm text-fg placeholder:text-fg-muted"
+                                    disabled={!replyDelayOn}
+                                    className="flex-1 bg-transparent outline-none font-sans font-medium text-sm text-fg placeholder:text-fg-muted disabled:cursor-not-allowed"
                                 />
                             </div>
                         </div>
@@ -250,11 +258,12 @@ export const BatchOverviewTab: React.FC<BatchOverviewTabProps> = ({ formData, ha
                                         <button
                                             key={d.v}
                                             type="button"
+                                            disabled={!replyDelayOn}
                                             onClick={() => {
                                                 const next = selected ? days.filter((x) => x !== d.v) : [...days, d.v].sort((a, b) => a - b);
                                                 handleChange({ target: { name: 'reply_working_days', value: next, type: 'text' } } as unknown as React.ChangeEvent<HTMLInputElement>);
                                             }}
-                                            className={`px-3 py-1.5 rounded-lg border font-sans font-medium text-xs tracking-tight transition-[transform,background-color,color,border-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] ${selected
+                                            className={`px-3 py-1.5 rounded-lg border font-sans font-medium text-xs tracking-tight transition-[transform,background-color,color,border-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100 ${selected
                                                 ? 'bg-[#EDE9FF] border-[#DDD6FF] text-[#7F22FE]'
                                                 : 'bg-bg-input border-border/60 text-fg-body hover:border-border'
                                                 }`}
@@ -272,10 +281,11 @@ export const BatchOverviewTab: React.FC<BatchOverviewTabProps> = ({ formData, ha
                                 <span className="font-sans font-semibold text-xs tracking-widest text-[#7F22FE]">HOURS START</span>
                                 <div
                                     onClick={(e) => {
+                                        if (!replyDelayOn) return;
                                         const inp = e.currentTarget.querySelector('input') as HTMLInputElement | null;
                                         try { (inp as unknown as { showPicker?: () => void })?.showPicker?.(); } catch { inp?.focus(); }
                                     }}
-                                    className="relative flex items-center bg-bg-input border rounded-lg border-border/60 cursor-pointer hover:border-border transition-colors"
+                                    className={`relative flex items-center bg-bg-input border rounded-lg border-border/60 hover:border-border transition-colors ${replyDelayOn ? 'cursor-pointer' : 'opacity-60 cursor-not-allowed'}`}
                                 >
                                     <input
                                         type="time"
@@ -284,9 +294,11 @@ export const BatchOverviewTab: React.FC<BatchOverviewTabProps> = ({ formData, ha
                                         value={formData.reply_working_hours_start || '08:00'}
                                         onChange={handleChange}
                                         onClick={(e) => {
+                                            if (!replyDelayOn) return;
                                             try { (e.currentTarget as unknown as { showPicker?: () => void }).showPicker?.(); } catch { /* ignore */ }
                                         }}
-                                        className="flex-1 px-4 py-2.5 bg-transparent outline-none font-sans font-medium text-sm text-fg cursor-pointer"
+                                        disabled={!replyDelayOn}
+                                        className="flex-1 px-4 py-2.5 bg-transparent outline-none font-sans font-medium text-sm text-fg cursor-pointer disabled:cursor-not-allowed"
                                     />
                                 </div>
                             </div>
@@ -294,10 +306,11 @@ export const BatchOverviewTab: React.FC<BatchOverviewTabProps> = ({ formData, ha
                                 <span className="font-sans font-semibold text-xs tracking-widest text-[#7F22FE]">HOURS END</span>
                                 <div
                                     onClick={(e) => {
+                                        if (!replyDelayOn) return;
                                         const inp = e.currentTarget.querySelector('input') as HTMLInputElement | null;
                                         try { (inp as unknown as { showPicker?: () => void })?.showPicker?.(); } catch { inp?.focus(); }
                                     }}
-                                    className="relative flex items-center bg-bg-input border rounded-lg border-border/60 cursor-pointer hover:border-border transition-colors"
+                                    className={`relative flex items-center bg-bg-input border rounded-lg border-border/60 hover:border-border transition-colors ${replyDelayOn ? 'cursor-pointer' : 'opacity-60 cursor-not-allowed'}`}
                                 >
                                     <input
                                         type="time"
@@ -306,9 +319,11 @@ export const BatchOverviewTab: React.FC<BatchOverviewTabProps> = ({ formData, ha
                                         value={formData.reply_working_hours_end || '20:00'}
                                         onChange={handleChange}
                                         onClick={(e) => {
+                                            if (!replyDelayOn) return;
                                             try { (e.currentTarget as unknown as { showPicker?: () => void }).showPicker?.(); } catch { /* ignore */ }
                                         }}
-                                        className="flex-1 px-4 py-2.5 bg-transparent outline-none font-sans font-medium text-sm text-fg cursor-pointer"
+                                        disabled={!replyDelayOn}
+                                        className="flex-1 px-4 py-2.5 bg-transparent outline-none font-sans font-medium text-sm text-fg cursor-pointer disabled:cursor-not-allowed"
                                     />
                                 </div>
                             </div>
@@ -318,7 +333,7 @@ export const BatchOverviewTab: React.FC<BatchOverviewTabProps> = ({ formData, ha
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="flex flex-col gap-1.5">
                                 <span className="font-sans font-semibold text-xs tracking-widest text-[#7F22FE]">BASE DELAY (MIN)</span>
-                                <div className="flex items-center bg-bg-input border rounded-lg border-border/60">
+                                <div className={`flex items-center bg-bg-input border rounded-lg border-border/60 ${replyDelayOn ? '' : 'opacity-60'}`}>
                                     <input
                                         type="number"
                                         name="reply_base_delay_minutes"
@@ -326,13 +341,14 @@ export const BatchOverviewTab: React.FC<BatchOverviewTabProps> = ({ formData, ha
                                         value={formData.reply_base_delay_minutes ?? 60}
                                         onChange={handleChange}
                                         min={0}
-                                        className="flex-1 px-4 py-2.5 bg-transparent outline-none font-sans font-medium text-sm text-fg"
+                                        disabled={!replyDelayOn}
+                                        className="flex-1 px-4 py-2.5 bg-transparent outline-none font-sans font-medium text-sm text-fg disabled:cursor-not-allowed"
                                     />
                                 </div>
                             </div>
                             <div className="flex flex-col gap-1.5">
                                 <span className="font-sans font-semibold text-xs tracking-widest text-[#7F22FE]">RANDOM BUFFER (MIN)</span>
-                                <div className="flex items-center bg-bg-input border rounded-lg border-border/60">
+                                <div className={`flex items-center bg-bg-input border rounded-lg border-border/60 ${replyDelayOn ? '' : 'opacity-60'}`}>
                                     <input
                                         type="number"
                                         name="reply_delay_buffer_minutes"
@@ -340,7 +356,8 @@ export const BatchOverviewTab: React.FC<BatchOverviewTabProps> = ({ formData, ha
                                         value={formData.reply_delay_buffer_minutes ?? 20}
                                         onChange={handleChange}
                                         min={0}
-                                        className="flex-1 px-4 py-2.5 bg-transparent outline-none font-sans font-medium text-sm text-fg"
+                                        disabled={!replyDelayOn}
+                                        className="flex-1 px-4 py-2.5 bg-transparent outline-none font-sans font-medium text-sm text-fg disabled:cursor-not-allowed"
                                     />
                                 </div>
                             </div>

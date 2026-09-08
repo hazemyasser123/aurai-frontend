@@ -99,22 +99,22 @@ const UsersPageContent: React.FC = () => {
     const isMutating = createUserMutation.isPending || updateUserMutation.isPending;
 
     return (
-        <div className="flex flex-col gap-6 h-full p-6 overflow-auto">
+        <div className="flex flex-col gap-6 min-h-0 w-full max-w-full p-4 sm:p-6">
             {/* Header */}
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                <div>
-                    <h1 className="font-sans font-bold text-2xl tracking-tight text-fg">Users</h1>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="min-w-0">
+                    <h1 className="font-sans font-bold text-xl sm:text-2xl tracking-tight text-fg">Users</h1>
                     <p className="font-sans text-sm text-fg-body mt-1">
                         Manage user accounts and their access levels
                     </p>
                 </div>
-                <Button variant="gradient" onClick={handleOpenCreateModal} className="lg:ml-auto">
+                <Button variant="gradient" onClick={handleOpenCreateModal} className="sm:ml-auto w-full sm:w-auto max-w-none">
                     + Add User
                 </Button>
             </div>
 
-            {/* Users Table */}
-            <div className="bg-bg-card border border-border rounded-xl overflow-hidden">
+            {/* Users Table — horizontally scrollable on small screens */}
+            <div className="bg-bg-card border border-border rounded-xl overflow-hidden min-w-0 max-w-full">
                 {isLoading ? (
                     <div className="p-12 text-center text-fg-body">Loading users...</div>
                 ) : error ? (
@@ -122,14 +122,14 @@ const UsersPageContent: React.FC = () => {
                 ) : users && users.length === 0 ? (
                     <div className="p-12 text-center text-fg-body">No users found</div>
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
+                    <div className="overflow-x-auto -mx-px max-w-full" style={{ WebkitOverflowScrolling: 'touch' }}>
+                        <table className="w-full min-w-[640px] border-collapse">
                             <thead>
                                 <tr className="border-b border-border bg-bg-muted/50">
-                                    <th className="px-6 py-4 text-left font-sans font-semibold text-xs tracking-tight text-fg-muted uppercase">Username</th>
-                                    <th className="px-6 py-4 text-left font-sans font-semibold text-xs tracking-tight text-fg-muted uppercase">Role</th>
-                                    <th className="px-6 py-4 text-left font-sans font-semibold text-xs tracking-tight text-fg-muted uppercase">Status</th>
-                                    <th className="px-6 py-4 text-right font-sans font-semibold text-xs tracking-tight text-fg-muted uppercase">Actions</th>
+                                    <th className="px-4 sm:px-6 py-4 text-left font-sans font-semibold text-xs tracking-tight text-fg-muted uppercase whitespace-nowrap">Username</th>
+                                    <th className="px-4 sm:px-6 py-4 text-left font-sans font-semibold text-xs tracking-tight text-fg-muted uppercase whitespace-nowrap">Role</th>
+                                    <th className="px-4 sm:px-6 py-4 text-left font-sans font-semibold text-xs tracking-tight text-fg-muted uppercase whitespace-nowrap">Status</th>
+                                    <th className="px-4 sm:px-6 py-4 text-right font-sans font-semibold text-xs tracking-tight text-fg-muted uppercase whitespace-nowrap">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border">
@@ -138,21 +138,21 @@ const UsersPageContent: React.FC = () => {
                                     const isRowBusy = isMutating;
                                     return (
                                         <tr key={user.id} className="hover:bg-bg-muted/30 transition-colors">
-                                            <td className="px-6 py-4 font-sans font-medium text-sm text-fg">
+                                            <td className="px-4 sm:px-6 py-4 font-sans font-medium text-sm text-fg whitespace-nowrap">
                                                 {user.username}
                                                 {isSelf && <span className="ml-2 text-xs text-fg-muted">(you)</span>}
                                             </td>
-                                            <td className="px-6 py-4">
+                                            <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                                                 <Badge variant={user.role === 'ADMIN' ? 'primary' : 'ghost'}>
                                                     {user.role}
                                                 </Badge>
                                             </td>
-                                            <td className="px-6 py-4">
+                                            <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                                                 <Badge variant={user.is_active ? 'success' : 'ghost'}>
                                                     {user.is_active ? 'Active' : 'Disabled'}
                                                 </Badge>
                                             </td>
-                                            <td className="px-6 py-4 text-right">
+                                            <td className="px-4 sm:px-6 py-4 text-right whitespace-nowrap">
                                                 <div className="flex items-center justify-end gap-2">
                                                     {!isSelf && (
                                                         <Button

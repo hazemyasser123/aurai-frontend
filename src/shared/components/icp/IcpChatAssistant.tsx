@@ -19,15 +19,15 @@ interface IcpChatAssistantProps {
 type ChatMessage =
   | { id: string; role: 'user'; content: string }
   | {
-      id: string;
-      role: 'assistant';
-      content: string;
-      changed_fields: string[];
-      proposed_icp: Record<string, unknown>;
-      snapshot: Record<string, unknown>;
-      appliedFields?: string[];
-      declinedFields?: string[];
-    };
+    id: string;
+    role: 'assistant';
+    content: string;
+    changed_fields: string[];
+    proposed_icp: Record<string, unknown>;
+    snapshot: Record<string, unknown>;
+    appliedFields?: string[];
+    declinedFields?: string[];
+  };
 
 const FIELD_LABELS: Record<string, string> = {
   name: 'Target Profile Name',
@@ -154,11 +154,10 @@ const FieldDiffRow: React.FC<{
                         return next;
                       });
                     }}
-                    className={`px-2 py-1 rounded-md border font-sans text-xs transition-colors text-left ${
-                      kept
-                        ? 'bg-bg-card border-border text-fg-body'
-                        : 'bg-danger-bg border-danger/20 text-danger line-through'
-                    } ${isIdle ? 'hover:opacity-80 cursor-pointer' : 'cursor-default opacity-70'}`}
+                    className={`px-2 py-1 rounded-md border font-sans text-xs transition-colors text-left ${kept
+                      ? 'bg-bg-card border-border text-fg-body'
+                      : 'bg-danger-bg border-danger/20 text-danger line-through'
+                      } ${isIdle ? 'hover:opacity-80 cursor-pointer' : 'cursor-default opacity-70'}`}
                     title={kept ? 'Kept — will not be removed' : 'Will be removed — click to keep'}
                   >
                     {v} {kept ? '✓ keep' : ''}
@@ -190,9 +189,8 @@ const FieldDiffRow: React.FC<{
                         return next;
                       });
                     }}
-                    className={`px-2 py-1 rounded-md border font-sans text-xs transition-colors text-left ${
-                      accepted ? 'bg-success-bg border-success/20 text-success' : 'bg-bg-card border-border text-fg-muted line-through opacity-60'
-                    } ${isIdle ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'}`}
+                    className={`px-2 py-1 rounded-md border font-sans text-xs transition-colors text-left ${accepted ? 'bg-success-bg border-success/20 text-success' : 'bg-bg-card border-border text-fg-muted line-through opacity-60'
+                      } ${isIdle ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'}`}
                     title={accepted ? 'Will be added — click to skip' : 'Skipped — click to add'}
                   >
                     {v} {accepted ? '' : ' (skipped)'}
@@ -301,7 +299,7 @@ const FieldDiffRow: React.FC<{
   );
 };
 
-export const IcpChatAssistant: React.FC<IcpChatAssistantProps> = ({ currentIcp, onApply, chatFn, title = 'ICB Assistant' }) => {
+export const IcpChatAssistant: React.FC<IcpChatAssistantProps> = ({ currentIcp, onApply, chatFn, title = 'ICP Assistant' }) => {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -371,13 +369,32 @@ export const IcpChatAssistant: React.FC<IcpChatAssistantProps> = ({ currentIcp, 
     );
   };
 
+  const handleApplyAll = (msg: Extract<ChatMessage, { role: 'assistant' }>) => {
+    const idleFields = msg.changed_fields.filter((f) => !msg.appliedFields?.includes(f) && !msg.declinedFields?.includes(f));
+    if (idleFields.length === 0) return;
+    const allProposed: Record<string, unknown> = {};
+    idleFields.forEach((f) => {
+      allProposed[f] = msg.proposed_icp[f];
+    });
+    onApply(allProposed);
+    setMessages((prev) =>
+      prev.map((m) => {
+        if (m.id !== msg.id || m.role !== 'assistant') return m;
+        const applied = new Set((m as Extract<ChatMessage, { role: 'assistant' }>).appliedFields ?? []);
+        idleFields.forEach((f) => applied.add(f));
+        return { ...m, appliedFields: Array.from(applied) };
+      }),
+    );
+    toast.success(`Applied all ${idleFields.length} field(s) — click Save to persist`);
+  };
+
   return (
     <>
       {/* Floating chat icon — bottom right */}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        aria-label={open ? 'Close ICB Assistant' : 'Open ICB Assistant'}
+        aria-label={open ? 'Close ICP Assistant' : 'Open ICP Assistant'}
         className="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-primary text-white shadow-[0_8px_24px_rgba(127,34,254,0.35)] flex items-center justify-center hover:bg-primary-dark active:scale-[0.97] transition-[transform,background-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)]"
       >
         {open ? <FiX className="w-6 h-6" /> : <FiMessageCircle className="w-6 h-6" />}
@@ -407,7 +424,7 @@ export const IcpChatAssistant: React.FC<IcpChatAssistantProps> = ({ currentIcp, 
               <div className="flex flex-col gap-2 p-3 bg-bg-card border border-dashed border-border rounded-xl">
                 <span className="font-sans font-semibold text-xs text-fg">Try asking:</span>
                 <span className="font-sans text-xs text-fg-body">“I want to target customer support managers in Egypt”</span>
-                <span className="font-sans text-xs text-fg-muted">I’ll suggest field changes with a diff preview — Apply per field, Save persists.</span>
+                <span className="font-sans text-xs text-fg-muted">I’ll suggest field changes with a diff preview — Apply per field or Apply all, Save persists.</span>
               </div>
             )}
             {messages.map((m) =>
@@ -439,8 +456,24 @@ export const IcpChatAssistant: React.FC<IcpChatAssistantProps> = ({ currentIcp, 
                         />
                       );
                     })}
-                    {m.changed_fields.length === 0 && (
+                    {m.changed_fields.length === 0 ? (
                       <span className="font-sans text-xs text-fg-muted px-1">No fields changed</span>
+                    ) : (
+                      (() => {
+                        const idleCount = m.changed_fields.filter((f) => !m.appliedFields?.includes(f) && !m.declinedFields?.includes(f)).length;
+                        if (idleCount <= 1) return null;
+                        return (
+                          <div className="flex justify-end pt-1">
+                            <button
+                              type="button"
+                              onClick={() => handleApplyAll(m as Extract<ChatMessage, { role: 'assistant' }>)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary text-white border border-primary hover:bg-primary-dark active:scale-[0.97] font-sans font-semibold text-xs transition-colors"
+                            >
+                              <FiCheck className="w-3.5 h-3.5" /> Apply all ({idleCount})
+                            </button>
+                          </div>
+                        );
+                      })()
                     )}
                   </div>
                 </div>
