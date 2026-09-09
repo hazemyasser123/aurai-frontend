@@ -121,6 +121,8 @@ export interface AddBatchAccountPayload {
 
 export interface SearchAccountCandidatesPayload {
   query: string;
+  account_source?: AccountSource;
+  contact_source?: ContactSource;
 }
 
 export interface AccountCandidate {

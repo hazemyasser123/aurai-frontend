@@ -8,10 +8,9 @@ export const useFindAccounts = () => {
   return useMutation({
     mutationFn: (payload: FindAccountsPayload) => batchApi.findAccounts(payload),
     onSuccess: async (_data, variables) => {
-      // detail(id) prefix also covers accounts(id); lists refreshes the batch cards
+      // detail cache is updated by the transition (fast-path/poll) — no detail invalidation
+      // needed here. Fetch the accounts NOW (see below) so the next view shows them instantly.
       if (variables.id) {
-        queryClient.invalidateQueries({ queryKey: batchKeys.detail(variables.id) });
-
         // The find-accounts response doesn't include the accounts themselves —
         // fetch them NOW, while the loading overlay is still up, so the Explore
         // Accounts view shows them the instant it mounts (no empty flash).

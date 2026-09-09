@@ -4,4 +4,5 @@ export const batchKeys = {
   create: ["batches", "create"] as const,
   detail: (id: string) => ["batches", "detail", id] as const,
   accounts: (id: string) => ["batches", "detail", id, "accounts"] as const,
+  outreach: (id: string) => ["batches", id, "outreach"] as const,
 };

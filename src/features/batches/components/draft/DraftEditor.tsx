@@ -15,8 +15,8 @@ export const DraftEditor: React.FC<Props> = ({ conversation, onUpdated }) => {
   const [subject, setSubject] = useState(conversation.subject || '');
   const [body, setBody] = useState(conversation.body || '');
   const [isEditing, setIsEditing] = useState(false);
-  const updateDraft = useUpdateOutreachDraft();
-  const sendOutreach = useSendOutreach();
+  const updateDraft = useUpdateOutreachDraft(conversation.batch_id);
+  const sendOutreach = useSendOutreach(conversation.batch_id);
 
   useEffect(() => {
     setSubject(conversation.subject || '');

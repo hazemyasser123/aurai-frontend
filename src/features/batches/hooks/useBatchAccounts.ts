@@ -21,6 +21,10 @@ export const useBatchAccounts = (
       .filter((a) => !isHidden(a.status))
       .sort((a, b) => (a.name || '').localeCompare(b.name || '')),
     refetchInterval: options?.refetchInterval,
+    // Flow data changes through explicit actions, which invalidate it —
+    // no refetch on remount within the stale window or on window focus
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
 };
 

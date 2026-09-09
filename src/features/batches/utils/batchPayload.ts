@@ -1,19 +1,12 @@
-import type { Batch, ProductAnalysis, Icp } from "@/features/batches/types/batchTypes";
-
-export interface ProductIntelligenceOverride {
-  product_analysis?: ProductAnalysis;
-  icp?: Icp;
-}
+import type { Batch } from "@/features/batches/types/batchTypes";
 
 /**
- * Full batch payload — everything from Batch Overview, Product Intelligence and ICP.
+ * Full batch payload — everything from Batch Overview, Product Intelligence and ICP,
+ * taken from the LOCAL edited copy (formData) so the user's own edits are always included.
  * Master switches are respected: tied fields are omitted entirely when their flag is off.
  * Used by find-accounts and fetch-more; the Save button builds on the same shape plus status.
- *
- * When `intelligence` is provided (fetched from the product's own endpoints), its
- * product_analysis/icp are sent instead of the batch's stored copies.
  */
-export function buildFullBatchPayload(batch: Batch, intelligence?: ProductIntelligenceOverride) {
+export function buildFullBatchPayload(batch: Batch) {
   const followupOn = batch.enable_auto_followup ?? true;
   const replyDelayOn = batch.reply_delay_enabled ?? false;
 
@@ -44,9 +37,9 @@ export function buildFullBatchPayload(batch: Batch, intelligence?: ProductIntell
           ...(batch.reply_delay_buffer_minutes != null ? { reply_delay_buffer_minutes: Number(batch.reply_delay_buffer_minutes) } : {}),
         }
       : {}),
-    // Product Intelligence — the product's own, when available
-    product_analysis: intelligence?.product_analysis ?? batch.product_analysis,
-    // Ideal Customer Profile (ICP) — the product's own, when available
-    icp: intelligence?.icp ?? batch.icp,
+    // Product Intelligence — the local edited copy
+    product_analysis: batch.product_analysis,
+    // Ideal Customer Profile (ICP) — the local edited copy
+    icp: batch.icp,
   };
 }

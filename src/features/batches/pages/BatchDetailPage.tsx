@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { WithNavbar } from '@/shared/components/hoc/WithNavbar';
 import { Button, Modal } from '@/shared/components/ui';
@@ -9,7 +9,6 @@ import { useCloneBatch } from '@/features/batches/hooks/useCloneBatch';
 import { useDeleteBatch } from '@/features/batches/hooks/useDeleteBatch';
 import { useEnrichAndEvaluateAccounts } from '@/features/batches/hooks/useEnrichAndEvaluateAccounts';
 import { useBatchAccounts } from '@/features/batches/hooks/useBatchAccounts';
-import { useProductIntelligence } from '@/features/batches/hooks/useProductIntelligence';
 import { BatchOverviewTab } from '@/features/batches/components/tabs/BatchOverviewTab';
 import { ProductIntelligenceTab } from '@/features/batches/components/tabs/ProductIntelligenceTab';
 import { IcpTab } from '@/features/batches/components/tabs/IcpTab';
@@ -39,16 +38,12 @@ const BatchDetailPage: React.FC = () => {
 
     const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
     const [formData, setFormData] = useState<Batch | null>(null);
-    // The product's own Product Intelligence — sent with the re-rank enrich call
-    const rerankProductIntelligence = useProductIntelligence(formData?.base_product_id);
     const [isCloneOpen, setIsCloneOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isRerankOpen, setIsRerankOpen] = useState(false);
     const [pendingPayload, setPendingPayload] = useState<UpdateBatchPayload | null>(null);
     const [originalProductAnalysis, setOriginalProductAnalysis] = useState<string | null>(null);
     const [isReranking, setIsReranking] = useState(false);
-    // Marked on user edits (Batch Overview / Product Intelligence / ICP) — drives autosave
-    const dirtyRef = useRef(false);
     const cloneBatch = useCloneBatch();
     const deleteBatch = useDeleteBatch();
 
@@ -73,7 +68,6 @@ const BatchDetailPage: React.FC = () => {
         }
     }, [fetchedBatch]);
 
-    // ESC closes the re-rank modal (when not busy)
     useEffect(() => {
         if (!isRerankOpen) return;
         const onKey = (e: KeyboardEvent) => {
@@ -100,7 +94,6 @@ const BatchDetailPage: React.FC = () => {
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
         const checked = (e.target as HTMLInputElement).checked;
-        dirtyRef.current = true;
         // Master switch: turning follow-up flagging off clears the delay (shown empty + not sent)
         if (name === 'enable_auto_followup' && !checked) {
             setFormData(prev => prev ? ({
@@ -117,7 +110,6 @@ const BatchDetailPage: React.FC = () => {
     };
 
     const handleNestedChange = (section: 'product_analysis' | 'icp', name: string, value: any) => {
-        dirtyRef.current = true;
         setFormData(prev => prev ? ({
             ...prev,
             [section]: {
@@ -127,7 +119,8 @@ const BatchDetailPage: React.FC = () => {
         }) : prev);
     };
 
-    // Full batch payload for save/autosave — master switches omit tied fields when off
+    // Full batch payload for Save — master switches omit tied fields when off.
+    // The PUT only ever fires from the explicit Save button (handleSave) — nothing else.
     const buildSavePayload = (batch: Batch): UpdateBatchPayload => {
         const followupOn = batch.enable_auto_followup ?? true;
         const replyDelayOn = batch.reply_delay_enabled ?? false;
@@ -163,33 +156,6 @@ const BatchDetailPage: React.FC = () => {
         };
     };
 
-    // Autosave — edits in Batch Overview / Product Intelligence / ICP are sent
-    // automatically (debounced); the user doesn't have to press Save.
-    useEffect(() => {
-        if (!dirtyRef.current || !formData || !batchId) return;
-        let cancelled = false;
-        const save = async () => {
-            if (cancelled) return;
-            if (updateBatch.isPending) {
-                window.setTimeout(save, 800);
-                return;
-            }
-            dirtyRef.current = false;
-            try {
-                await updateBatch.mutateAsync(buildSavePayload(formData));
-                // Keep the re-rank baseline in sync so a later manual Save doesn't false-prompt
-                setOriginalProductAnalysis(JSON.stringify(formData.product_analysis || {}));
-            } catch (error) {
-                if (!cancelled) toast.error(getErrorMessage(error));
-            }
-        };
-        const t = window.setTimeout(save, 1200);
-        return () => {
-            cancelled = true;
-            window.clearTimeout(t);
-        };
-    });
-
     const handleSave = async () => {
         if (!formData || !batchId) return;
         const payload = buildSavePayload(formData);
@@ -223,7 +189,7 @@ const BatchDetailPage: React.FC = () => {
                 // re-runs enrichment & ranking for the batch's accounts (ignored ones excluded)
                 await rerankAccounts.mutateAsync({
                     account_ids: (rerankAccountsList || []).map((a) => a.id),
-                    product_analysis: rerankProductIntelligence.data?.product_analysis ?? pendingPayload.product_analysis,
+                    product_analysis: pendingPayload.product_analysis,
                     force_reevaluate: true,
                 });
                 toast.success('Contacts re-ranked successfully');
@@ -447,3 +413,4 @@ const BatchDetailPage: React.FC = () => {
 };
 
 export default WithNavbar(BatchDetailPage);
+

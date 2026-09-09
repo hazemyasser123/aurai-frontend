@@ -13,7 +13,6 @@ import { FindMoreAccountsModal } from '@/features/batches/components/flow/FindMo
 import type { Batch, Contact, OutreachConversation } from '@/features/batches/types/batchTypes';
 import type { BeginTransition } from '@/features/batches/utils/batchFlow';
 import { buildFullBatchPayload } from '@/features/batches/utils/batchPayload';
-import { useProductIntelligence } from '@/features/batches/hooks/useProductIntelligence';
 import { Modal, Button } from '@/shared/components/ui';
 import { FiPlus, FiSearch } from 'react-icons/fi';
 import toast from 'react-hot-toast';
@@ -39,15 +38,13 @@ export const ContactsFetchedView: React.FC<Props> = ({ batch, beginTransition })
   // Grow outreach — the batch stays expandable even after being outreached
   const fetchMore = useFetchMoreAccounts(batchId);
   const findContacts = useFindBatchContacts(batchId);
-  // The product's own Product Intelligence + ICP — sent in the fetch-more payload
-  const productIntelligence = useProductIntelligence(batch.base_product_id);
   const [isFindMoreOpen, setIsFindMoreOpen] = useState(false);
 
   const handleFindMoreAccounts = async (count: number) => {
     try {
-      // Send the full batch — Batch Overview + the product's Product Intelligence + ICP
+      // Send the full batch — Batch Overview + the local Product Intelligence + ICP edits
       const fetched = await fetchMore.mutateAsync({
-        ...buildFullBatchPayload(batch, productIntelligence.data || undefined),
+        ...buildFullBatchPayload(batch),
         count_to_add: count,
       });
       // Only genuinely-new accounts count — duplicates are skipped

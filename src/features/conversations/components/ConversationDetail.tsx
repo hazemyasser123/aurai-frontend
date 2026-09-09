@@ -39,13 +39,16 @@ export const ConversationDetail: React.FC<Props> = ({ conversation: c, onBack })
   const messages = thread?.messages || [];
 
   // DRAFTED threads render the outbound message in an editable editor with Save/Send —
-  // the same actions as the Draft Messages screen
+  // the same actions as the Draft Messages screen. Note: the thread normalizer folds the
+  // outbound draft into `thread.email` (and removes it from `messages`), so the body
+  // comes from the email card when the message list no longer carries it.
   const isDrafted = (thread?.status || c.status || '').toLowerCase() === 'drafted';
   const draftMessage = messages.find((m) => (m.direction || '').toLowerCase().includes('out'));
   const draftConversation = {
     id: c.id,
     contact_id: c.contact_id,
     account_id: c.account_id,
+    batch_id: thread?.batch_id ?? c.batch_id,
     status: thread?.status || c.status || '',
     first_name: thread?.first_name ?? c.first_name,
     last_name: thread?.last_name ?? c.last_name,
@@ -53,7 +56,7 @@ export const ConversationDetail: React.FC<Props> = ({ conversation: c, onBack })
     photo_url: c.photo_url,
     recipient_email: thread?.recipient_email ?? c.recipient_email ?? null,
     subject: thread?.subject ?? c.subject ?? '',
-    body: draftMessage?.body_html || draftMessage?.display_text || draftMessage?.body || '',
+    body: thread?.email?.body || draftMessage?.body_html || draftMessage?.display_text || draftMessage?.body || '',
   } as import('@/features/batches/types/batchTypes').OutreachConversation;
 
   // After save/send from the editor — refresh this thread and the conversations list
@@ -209,6 +212,12 @@ export const ConversationDetail: React.FC<Props> = ({ conversation: c, onBack })
           <div className="flex items-center justify-center py-12">
             <div className="w-8 h-8 rounded-full border-4 border-border border-t-primary animate-spin" />
           </div>
+        ) : isDrafted ? (
+          /* DRAFTED — the thread IS the draft: editable subject/body with Save/Send,
+             same actions as the Draft Messages screen. Replaces the read-only email card. */
+          <div className="flex flex-col">
+            <DraftEditor conversation={draftConversation} onUpdated={handleDraftUpdated} />
+          </div>
         ) : (
           <>
             {/* Original cold email that started the thread — outbound (our side), so right-aligned */}
@@ -251,14 +260,10 @@ export const ConversationDetail: React.FC<Props> = ({ conversation: c, onBack })
               </div>
             )}
 
-            {/* Replies after the original email, chronological.
-                DRAFTED threads: the outbound message renders as an editable draft with Save/Send. */}
-            {messages.map((m, idx) => {
-              if (isDrafted && draftMessage && (m.direction || '').toLowerCase().includes('out')) {
-                return <DraftEditor key={m.id ?? idx} conversation={draftConversation} onUpdated={handleDraftUpdated} />;
-              }
-              return <MessageBubble key={m.id ?? idx} message={m} prospectName={prospectName || 'Prospect'} />;
-            })}
+            {/* Replies after the original email, chronological */}
+            {messages.map((m, idx) => (
+              <MessageBubble key={m.id ?? idx} message={m} prospectName={prospectName || 'Prospect'} />
+            ))}
 
             {/* Contact hasn't replied yet */}
             {!thread?.email && messages.length === 0 && (

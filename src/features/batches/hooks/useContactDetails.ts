@@ -10,5 +10,9 @@ export const useContactDetails = (contactId: string) => {
     queryKey: contactKeys.detail(contactId),
     queryFn: () => batchApi.getContact(contactId),
     enabled: !!contactId,
+    // Changes through explicit actions (enrich) which invalidate it —
+    // no refetch on remount within the stale window or on window focus
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 };

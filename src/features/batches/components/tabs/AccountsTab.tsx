@@ -6,7 +6,6 @@ import { FiSearch } from 'react-icons/fi';
 import bookmarkIcon from '@/assets/bookmark.svg';
 import type { Batch } from '@/features/batches/types/batchTypes';
 import { useFindAccounts } from '@/features/batches/hooks/useFindAccounts';
-import { useProductIntelligence } from '@/features/batches/hooks/useProductIntelligence';
 import { batchApi } from '@/shared/queries/batches/batchApi';
 import { batchKeys } from '@/shared/queries/batches/batchQueries';
 import { getBatchStep, getStepIndex, STEP_ORDER } from '@/features/batches/utils/batchFlow';
@@ -26,6 +25,10 @@ import { getErrorMessage } from '@/shared/utils/errorHandler';
 const TRANSITION_POLL_MS = 2000;
 const TRANSITION_TIMEOUT_MS = 180000;
 
+// Module-scope time helpers (React purity: no impure Date.now calls in component scope)
+const transitionDeadline = () => Date.now() + TRANSITION_TIMEOUT_MS;
+const now = () => Date.now();
+
 interface AccountsTabProps {
     formData: Batch;
     setFormData: React.Dispatch<React.SetStateAction<Batch | null>>;
@@ -36,8 +39,6 @@ interface AccountsTabProps {
 export const AccountsTab: React.FC<AccountsTabProps> = ({ formData, setFormData }) => {
     const findAccounts = useFindAccounts();
     const queryClient = useQueryClient();
-    // The product's own Product Intelligence + ICP — sent in the find-accounts payload
-    const productIntelligence = useProductIntelligence(formData.base_product_id);
 
     // Status-transition state: while a forward action is pending we either trust the
     // action's response or poll until the backend confirms the new status, showing a
@@ -98,8 +99,8 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({ formData, setFormData 
 
             // Poll the batch detail until the backend confirms the target step —
             // succeeds when the status has actually changed and reached (or passed) it
-            const deadline = Date.now() + TRANSITION_TIMEOUT_MS;
-            while (Date.now() < deadline) {
+            const deadline = transitionDeadline();
+            while (now() < deadline) {
                 if (cancelledRef.current) return false; // user left — stop silently
                 const fresh = await batchApi.getBatch(formData.id);
                 if (cancelledRef.current) return false;
@@ -177,7 +178,7 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({ formData, setFormData 
         // Product Intelligence and ICP come from the product's own endpoints when available.
         const payload = {
             id: formData.id,
-            ...buildFullBatchPayload(formData, productIntelligence.data || undefined),
+            ...buildFullBatchPayload(formData),
             max_results: formData.max_results || 10,
         };
         const confirmed = await beginTransition(

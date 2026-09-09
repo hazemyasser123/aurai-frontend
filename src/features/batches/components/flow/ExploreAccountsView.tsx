@@ -13,7 +13,6 @@ import { STEP_LABELS } from '@/features/batches/utils/batchFlow';
 import type { Account, AccountCandidate, Batch } from '@/features/batches/types/batchTypes';
 import { buildFullBatchPayload } from '@/features/batches/utils/batchPayload';
 import type { BeginTransition } from '@/features/batches/utils/batchFlow';
-import { useProductIntelligence } from '@/features/batches/hooks/useProductIntelligence';
 import { FindMoreAccountsModal } from '@/features/batches/components/flow/FindMoreAccountsModal';
 import toast from 'react-hot-toast';
 import { getErrorMessage } from '@/shared/utils/errorHandler';
@@ -31,8 +30,6 @@ interface Props {
 
 export const ExploreAccountsView: React.FC<Props> = ({ batch, beginTransition, onBack, onGoForward }) => {
     const batchId = batch.id;
-    // The product's own Product Intelligence + ICP — sent in fetch-more and enrich payloads
-    const productIntelligence = useProductIntelligence(batch.base_product_id);
     const { data: accounts, isLoading } = useBatchAccounts(batchId);
     const deleteAccount = useDeleteBatchAccount(batchId);
     const addAccount = useAddBatchAccount(batchId);
@@ -77,7 +74,12 @@ export const ExploreAccountsView: React.FC<Props> = ({ batch, beginTransition, o
             return;
         }
         try {
-            const results = await searchCandidates.mutateAsync({ query });
+            // Send the batch's account/contact sources along with the search query
+            const results = await searchCandidates.mutateAsync({
+                query,
+                account_source: batch.account_source || undefined,
+                contact_source: batch.contact_source || undefined,
+            });
             // Companies already in the batch don't appear in the selection list
             const existingDomains = new Set((accounts || []).map((a) => (a.domain || '').toLowerCase()));
             setSearchResults(results.filter((c) => !existingDomains.has((c.domain || '').toLowerCase())));
@@ -136,20 +138,6 @@ export const ExploreAccountsView: React.FC<Props> = ({ batch, beginTransition, o
     // Accounts that haven't been enriched yet (null status — e.g. freshly found/added)
     const pendingAccounts = (accounts || []).filter((a) => !a.status);
 
-    // Enrich only the pending (not-yet-enriched) accounts
-    const handleEnrichPending = async () => {
-        if (pendingAccounts.length === 0) return;
-        await beginTransition(
-            () => enrichMutation.mutateAsync({
-                account_ids: pendingAccounts.map((a) => a.id),
-                product_analysis: productIntelligence.data?.product_analysis ?? batch.product_analysis,
-            }),
-            'enrich',
-            'Enriching pending accounts',
-            { validate: () => true, silent: true }
-        );
-    };
-
     const handleConfirmDelete = async () => {
         if (!accountToDelete) return;
         try {
@@ -163,9 +151,9 @@ export const ExploreAccountsView: React.FC<Props> = ({ batch, beginTransition, o
 
     const handleFindMore = async (count: number) => {
         try {
-            // Send the full batch — Batch Overview + the product's Product Intelligence + ICP
+            // Send the full batch — Batch Overview + the local Product Intelligence + ICP edits
             const fetched = await fetchMore.mutateAsync({
-                ...buildFullBatchPayload(batch, productIntelligence.data || undefined),
+                ...buildFullBatchPayload(batch),
                 count_to_add: count,
             });
             // Only genuinely-new accounts count — duplicates are skipped
@@ -191,13 +179,13 @@ export const ExploreAccountsView: React.FC<Props> = ({ batch, beginTransition, o
 
         const accountIds = accounts.map(acc => acc.id);
 
-        // Send the product's Product Intelligence along with the account ids — the ranking
-        // is based on it. No blocking overlay: the buttons disable until the API responds,
-        // then the user is taken to the Enrich & Rank view (which polls processing accounts).
+        // Send ALL account ids with the local Product Intelligence copy. No blocking
+        // overlay: the buttons disable until the API responds, then the user is taken
+        // to the Enrich & Rank view (which polls processing accounts).
         await beginTransition(
             () => enrichMutation.mutateAsync({
                 account_ids: accountIds,
-                product_analysis: productIntelligence.data?.product_analysis ?? batch.product_analysis,
+                product_analysis: batch.product_analysis,
             }),
             'enrich',
             'Enriching & ranking accounts',
@@ -252,29 +240,18 @@ export const ExploreAccountsView: React.FC<Props> = ({ batch, beginTransition, o
                         </p>
                     </div>
                 </div>
-                {onGoForward ? (
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
-                        {pendingAccounts.length > 0 && (
-                            <Button
-                                variant="primary"
-                                className="w-full sm:w-auto"
-                                isLoading={enrichMutation.isPending}
-                                disabled={enrichMutation.isPending}
-                                onClick={handleEnrichPending}
-                            >
-                                Enrich Pending ({pendingAccounts.length})
-                            </Button>
-                        )}
-                        <Button
-                            variant="outline"
-                            className="w-full sm:w-auto"
-                            disabled={enrichMutation.isPending}
-                            onClick={onGoForward}
-                        >
-                            Go to {STEP_LABELS.enrich}
-                            <FiArrowRight className="w-4 h-4" />
-                        </Button>
-                    </div>
+                {/* With not-yet-enriched accounts the real Enrich & Rank CTA shows even when
+                    back-viewing — it re-runs enrichment for ALL account ids. Otherwise
+                    (nothing pending) back-viewing shows the plain navigation button. */}
+                {onGoForward && pendingAccounts.length === 0 ? (
+                    <Button
+                        variant="outline"
+                        className="w-full sm:w-auto"
+                        onClick={onGoForward}
+                    >
+                        Go to {STEP_LABELS.enrich}
+                        <FiArrowRight className="w-4 h-4" />
+                    </Button>
                 ) : (
                     <Button
                         variant="gradient"
@@ -390,11 +367,6 @@ export const ExploreAccountsView: React.FC<Props> = ({ batch, beginTransition, o
                                     {newAccountIds.has(account.id) && (
                                         <span className="font-sans font-semibold text-[10px] tracking-wide uppercase bg-bg-purple-50 text-primary rounded-full px-2 py-0.5 shrink-0">
                                             New
-                                        </span>
-                                    )}
-                                    {!account.status && (
-                                        <span className="font-sans font-semibold text-[10px] tracking-wide uppercase bg-bg-muted text-fg-muted rounded-full px-2 py-0.5 shrink-0">
-                                            Not enriched
                                         </span>
                                     )}
                                 </h4>
@@ -540,3 +512,4 @@ export const ExploreAccountsView: React.FC<Props> = ({ batch, beginTransition, o
         </div>
     );
 };
+

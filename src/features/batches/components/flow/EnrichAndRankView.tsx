@@ -122,16 +122,6 @@ export const EnrichAndRankView: React.FC<Props> = ({ batchId, beginTransition, o
                 )}
             </div>
 
-            {/* Enrichment in progress — poll until all accounts finish processing */}
-            {isProcessing && (
-                <div className="flex items-center gap-3 px-4 py-3 bg-bg-purple-50 border border-border rounded-xl">
-                    <div className="w-5 h-5 rounded-full border-2 border-border border-t-primary animate-spin shrink-0" />
-                    <p className="font-sans text-sm text-fg-body">
-                        Enriching &amp; ranking accounts — <span className="font-semibold text-fg">{processingCount}</span> account(s) still processing…
-                    </p>
-                </div>
-            )}
-
             {/* Controllers */}
             <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
                 <h3 className="font-sans font-medium text-xl text-fg whitespace-nowrap">Accounts ({filteredAccounts.length})</h3>
