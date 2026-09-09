@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { WithNavbar } from '@/shared/components/hoc/WithNavbar';
 import { Button, Modal } from '@/shared/components/ui';
@@ -7,6 +7,9 @@ import { useBatch } from '@/features/batches/hooks/useBatch';
 import { useUpdateBatch } from '@/features/batches/hooks/useUpdateBatch';
 import { useCloneBatch } from '@/features/batches/hooks/useCloneBatch';
 import { useDeleteBatch } from '@/features/batches/hooks/useDeleteBatch';
+import { useEnrichAndEvaluateAccounts } from '@/features/batches/hooks/useEnrichAndEvaluateAccounts';
+import { useBatchAccounts } from '@/features/batches/hooks/useBatchAccounts';
+import { useProductIntelligence } from '@/features/batches/hooks/useProductIntelligence';
 import { BatchOverviewTab } from '@/features/batches/components/tabs/BatchOverviewTab';
 import { ProductIntelligenceTab } from '@/features/batches/components/tabs/ProductIntelligenceTab';
 import { IcpTab } from '@/features/batches/components/tabs/IcpTab';
@@ -27,18 +30,25 @@ const BatchDetailPage: React.FC = () => {
     const [searchParams] = useSearchParams();
     const { data: fetchedBatch, isLoading } = useBatch(batchId || '');
     const updateBatch = useUpdateBatch(batchId || '');
+    // Re-rank — re-runs enrich-and-evaluate with force_reevaluate for the batch's accounts
+    const rerankAccounts = useEnrichAndEvaluateAccounts(batchId || '');
+    const { data: rerankAccountsList } = useBatchAccounts(batchId || '');
 
     // Allow deep-linking to a tab, e.g. /batches/:id?tab=accounts (used after sending all emails)
     const initialTab = (searchParams.get('tab') as TabKey) || 'overview';
 
     const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
     const [formData, setFormData] = useState<Batch | null>(null);
+    // The product's own Product Intelligence — sent with the re-rank enrich call
+    const rerankProductIntelligence = useProductIntelligence(formData?.base_product_id);
     const [isCloneOpen, setIsCloneOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isRerankOpen, setIsRerankOpen] = useState(false);
     const [pendingPayload, setPendingPayload] = useState<UpdateBatchPayload | null>(null);
     const [originalProductAnalysis, setOriginalProductAnalysis] = useState<string | null>(null);
     const [isReranking, setIsReranking] = useState(false);
+    // Marked on user edits (Batch Overview / Product Intelligence / ICP) — drives autosave
+    const dirtyRef = useRef(false);
     const cloneBatch = useCloneBatch();
     const deleteBatch = useDeleteBatch();
 
@@ -90,6 +100,7 @@ const BatchDetailPage: React.FC = () => {
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
         const checked = (e.target as HTMLInputElement).checked;
+        dirtyRef.current = true;
         // Master switch: turning follow-up flagging off clears the delay (shown empty + not sent)
         if (name === 'enable_auto_followup' && !checked) {
             setFormData(prev => prev ? ({
@@ -106,6 +117,7 @@ const BatchDetailPage: React.FC = () => {
     };
 
     const handleNestedChange = (section: 'product_analysis' | 'icp', name: string, value: any) => {
+        dirtyRef.current = true;
         setFormData(prev => prev ? ({
             ...prev,
             [section]: {
@@ -115,43 +127,72 @@ const BatchDetailPage: React.FC = () => {
         }) : prev);
     };
 
-    const handleSave = async () => {
-        if (!formData || !batchId) return;
-
-        // Master switches — tied fields are omitted entirely (not even empty) when their flag is off.
-        const followupOn = formData.enable_auto_followup ?? true;
-        const replyDelayOn = formData.reply_delay_enabled ?? false;
-
-        const payload: UpdateBatchPayload = {
-            name: formData.name,
-            batch_name: formData.name,
-            base_product_id: formData.base_product_id || undefined,
-            status: formData.status,
-            product_analysis: formData.product_analysis,
-            icp: formData.icp,
-            account_source: formData.account_source || undefined,
-            contact_source: formData.contact_source || undefined,
-            cc_emails: formData.cc_emails,
-            bcc_emails: formData.bcc_emails,
-            human_action_loop_emails: formData.human_action_loop_emails,
-            forward_emails: formData.forward_emails,
+    // Full batch payload for save/autosave — master switches omit tied fields when off
+    const buildSavePayload = (batch: Batch): UpdateBatchPayload => {
+        const followupOn = batch.enable_auto_followup ?? true;
+        const replyDelayOn = batch.reply_delay_enabled ?? false;
+        return {
+            name: batch.name,
+            batch_name: batch.name,
+            base_product_id: batch.base_product_id || undefined,
+            status: batch.status,
+            product_analysis: batch.product_analysis,
+            icp: batch.icp,
+            account_source: batch.account_source || undefined,
+            contact_source: batch.contact_source || undefined,
+            cc_emails: batch.cc_emails,
+            bcc_emails: batch.bcc_emails,
+            human_action_loop_emails: batch.human_action_loop_emails,
+            forward_emails: batch.forward_emails,
             enable_auto_followup: followupOn,
-            ...(followupOn && formData.followup_delay_days != null
-                ? { followup_delay_days: Number(formData.followup_delay_days) }
+            ...(followupOn && batch.followup_delay_days != null
+                ? { followup_delay_days: Number(batch.followup_delay_days) }
                 : {}),
-            max_results: formData.max_results != null ? Math.max(1, Number(formData.max_results)) : undefined,
+            max_results: batch.max_results != null ? Math.max(1, Number(batch.max_results)) : undefined,
             reply_delay_enabled: replyDelayOn,
             ...(replyDelayOn
                 ? {
-                    ...(formData.reply_timezone ? { reply_timezone: formData.reply_timezone } : {}),
-                    ...(formData.reply_working_days ? { reply_working_days: formData.reply_working_days } : {}),
-                    ...(formData.reply_working_hours_start ? { reply_working_hours_start: formData.reply_working_hours_start } : {}),
-                    ...(formData.reply_working_hours_end ? { reply_working_hours_end: formData.reply_working_hours_end } : {}),
-                    ...(formData.reply_base_delay_minutes != null ? { reply_base_delay_minutes: Number(formData.reply_base_delay_minutes) } : {}),
-                    ...(formData.reply_delay_buffer_minutes != null ? { reply_delay_buffer_minutes: Number(formData.reply_delay_buffer_minutes) } : {}),
+                    ...(batch.reply_timezone ? { reply_timezone: batch.reply_timezone } : {}),
+                    ...(batch.reply_working_days ? { reply_working_days: batch.reply_working_days } : {}),
+                    ...(batch.reply_working_hours_start ? { reply_working_hours_start: batch.reply_working_hours_start } : {}),
+                    ...(batch.reply_working_hours_end ? { reply_working_hours_end: batch.reply_working_hours_end } : {}),
+                    ...(batch.reply_base_delay_minutes != null ? { reply_base_delay_minutes: Number(batch.reply_base_delay_minutes) } : {}),
+                    ...(batch.reply_delay_buffer_minutes != null ? { reply_delay_buffer_minutes: Number(batch.reply_delay_buffer_minutes) } : {}),
                 }
                 : {}),
         };
+    };
+
+    // Autosave — edits in Batch Overview / Product Intelligence / ICP are sent
+    // automatically (debounced); the user doesn't have to press Save.
+    useEffect(() => {
+        if (!dirtyRef.current || !formData || !batchId) return;
+        let cancelled = false;
+        const save = async () => {
+            if (cancelled) return;
+            if (updateBatch.isPending) {
+                window.setTimeout(save, 800);
+                return;
+            }
+            dirtyRef.current = false;
+            try {
+                await updateBatch.mutateAsync(buildSavePayload(formData));
+                // Keep the re-rank baseline in sync so a later manual Save doesn't false-prompt
+                setOriginalProductAnalysis(JSON.stringify(formData.product_analysis || {}));
+            } catch (error) {
+                if (!cancelled) toast.error(getErrorMessage(error));
+            }
+        };
+        const t = window.setTimeout(save, 1200);
+        return () => {
+            cancelled = true;
+            window.clearTimeout(t);
+        };
+    });
+
+    const handleSave = async () => {
+        if (!formData || !batchId) return;
+        const payload = buildSavePayload(formData);
 
         // If Product Intelligence was edited, ask whether to re-rank contacts —
         // but only when the batch has contacts to re-rank (enriched or higher).
@@ -178,11 +219,16 @@ const BatchDetailPage: React.FC = () => {
         if (withRerank) {
             setIsReranking(true);
             try {
-                // TODO: replace with real route when provided — for now random delay to simulate re-ranking
-                await new Promise((r) => setTimeout(r, 900 + Math.random() * 800));
+                // POST /batches/{id}/accounts/enrich-and-evaluate with force_reevaluate —
+                // re-runs enrichment & ranking for the batch's accounts (ignored ones excluded)
+                await rerankAccounts.mutateAsync({
+                    account_ids: (rerankAccountsList || []).map((a) => a.id),
+                    product_analysis: rerankProductIntelligence.data?.product_analysis ?? pendingPayload.product_analysis,
+                    force_reevaluate: true,
+                });
                 toast.success('Contacts re-ranked successfully');
-            } catch {
-                toast.error('Re-rank failed');
+            } catch (e) {
+                toast.error(getErrorMessage(e));
             } finally {
                 setIsReranking(false);
             }

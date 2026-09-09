@@ -12,5 +12,11 @@ export const useProductIntelligence = (baseProductId?: string) => {
     queryFn: () => batchApi.getProductIntelligence(baseProductId as string),
     enabled: !!baseProductId,
     retry: false,
+    // Fetch once per product — never refetch on navigation/remount. The products
+    // feature invalidates this key when the analysis/ICP is edited.
+    staleTime: Infinity,
+    gcTime: 30 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 };

@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { FiArrowLeft } from 'react-icons/fi';
 import { Button } from '@/shared/components/ui';
 import { SafeHtml } from './SafeHtml';
 import type { Conversation } from '@/features/batches/types/batchTypes';
 import { getStatusBadge, getClassificationBadge, getHumanActionBadge, getFollowupBadge } from './badgeStyles';
 import { MessageBubble } from './MessageBubble';
+import { DraftEditor } from '@/features/batches/components/draft/DraftEditor';
 import { useOutreachThread } from '@/features/batches/hooks/useOutreachThread';
 import { useSendManualReply } from '@/features/conversations/hooks/useSendManualReply';
 import { useResolveConversation } from '@/features/conversations/hooks/useResolveConversation';
@@ -18,6 +20,7 @@ interface Props {
 }
 
 export const ConversationDetail: React.FC<Props> = ({ conversation: c, onBack }) => {
+  const queryClient = useQueryClient();
   const { data: thread, isLoading: loadingThread } = useOutreachThread(c.id);
   const sendReply = useSendManualReply(c.id);
   const resolve = useResolveConversation(c.id);
@@ -34,6 +37,30 @@ export const ConversationDetail: React.FC<Props> = ({ conversation: c, onBack })
   const followupBadge = getFollowupBadge(needsFollowup);
   const flagBadges = [classificationBadge, humanBadge, followupBadge].filter(Boolean).slice(0, 3) as ReturnType<typeof getClassificationBadge>[];
   const messages = thread?.messages || [];
+
+  // DRAFTED threads render the outbound message in an editable editor with Save/Send —
+  // the same actions as the Draft Messages screen
+  const isDrafted = (thread?.status || c.status || '').toLowerCase() === 'drafted';
+  const draftMessage = messages.find((m) => (m.direction || '').toLowerCase().includes('out'));
+  const draftConversation = {
+    id: c.id,
+    contact_id: c.contact_id,
+    account_id: c.account_id,
+    status: thread?.status || c.status || '',
+    first_name: thread?.first_name ?? c.first_name,
+    last_name: thread?.last_name ?? c.last_name,
+    title: c.title,
+    photo_url: c.photo_url,
+    recipient_email: thread?.recipient_email ?? c.recipient_email ?? null,
+    subject: thread?.subject ?? c.subject ?? '',
+    body: draftMessage?.body_html || draftMessage?.display_text || draftMessage?.body || '',
+  } as import('@/features/batches/types/batchTypes').OutreachConversation;
+
+  // After save/send from the editor — refresh this thread and the conversations list
+  const handleDraftUpdated = () => {
+    queryClient.invalidateQueries({ queryKey: ['outreach', c.id] });
+    queryClient.invalidateQueries({ queryKey: ['conversations'] });
+  };
 
   useEffect(() => {
     setReply('');
@@ -224,10 +251,14 @@ export const ConversationDetail: React.FC<Props> = ({ conversation: c, onBack })
               </div>
             )}
 
-            {/* Replies after the original email, chronological */}
-            {messages.map((m, idx) => (
-              <MessageBubble key={m.id ?? idx} message={m} prospectName={prospectName || 'Prospect'} />
-            ))}
+            {/* Replies after the original email, chronological.
+                DRAFTED threads: the outbound message renders as an editable draft with Save/Send. */}
+            {messages.map((m, idx) => {
+              if (isDrafted && draftMessage && (m.direction || '').toLowerCase().includes('out')) {
+                return <DraftEditor key={m.id ?? idx} conversation={draftConversation} onUpdated={handleDraftUpdated} />;
+              }
+              return <MessageBubble key={m.id ?? idx} message={m} prospectName={prospectName || 'Prospect'} />;
+            })}
 
             {/* Contact hasn't replied yet */}
             {!thread?.email && messages.length === 0 && (
@@ -238,33 +269,36 @@ export const ConversationDetail: React.FC<Props> = ({ conversation: c, onBack })
         )}
       </div>
 
-      {/* Input area — compact to give more to messages */}
-      <div className="flex flex-col gap-2 p-3 border-t border-border bg-white shrink-0">
-        <textarea
-          value={reply}
-          onChange={(e) => setReply(e.target.value)}
-          placeholder="Type a reply... (Enter to send, Shift+Enter for new line)"
-          rows={2}
-          className="w-full p-3 bg-bg-page border border-border rounded-lg font-sans font-normal text-sm tracking-tight text-fg-strong outline-none resize-none placeholder:text-fg-muted focus:border-border-focus focus:shadow-[0_0_0_3px_rgba(127,34,254,0.12)] transition-[border-color,box-shadow] duration-150 ease-out"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              handleSend();
-            }
-          }}
-        />
-        <div className="flex justify-end">
-          <Button
-            variant="primary"
-            onClick={handleSend}
-            isLoading={sendReply.isPending}
-            disabled={!reply.trim() || sendReply.isPending}
-            className="w-[110px] h-9 text-sm"
-          >
-            Send
-          </Button>
+      {/* Input area — compact to give more to messages.
+          DRAFTED threads use the editor's Save/Send actions instead of a live reply box. */}
+      {!isDrafted && (
+        <div className="flex flex-col gap-2 p-3 border-t border-border bg-white shrink-0">
+          <textarea
+            value={reply}
+            onChange={(e) => setReply(e.target.value)}
+            placeholder="Type a reply... (Enter to send, Shift+Enter for new line)"
+            rows={2}
+            className="w-full p-3 bg-bg-page border border-border rounded-lg font-sans font-normal text-sm tracking-tight text-fg-strong outline-none resize-none placeholder:text-fg-muted focus:border-border-focus focus:shadow-[0_0_0_3px_rgba(127,34,254,0.12)] transition-[border-color,box-shadow] duration-150 ease-out"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+          />
+          <div className="flex justify-end">
+            <Button
+              variant="primary"
+              onClick={handleSend}
+              isLoading={sendReply.isPending}
+              disabled={!reply.trim() || sendReply.isPending}
+              className="w-[110px] h-9 text-sm"
+            >
+              Send
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

@@ -51,8 +51,9 @@ export const DraftEditor: React.FC<Props> = ({ conversation, onUpdated }) => {
       }
     }
     try {
-      await sendOutreach.mutateAsync(conversation.id);
+      const sent = await sendOutreach.mutateAsync(conversation.id);
       toast.success(`Sent to ${conversation.recipient_email || conversation.first_name}`);
+      onUpdated?.(sent);
     } catch (e) {
       toast.error(getErrorMessage(e));
     }

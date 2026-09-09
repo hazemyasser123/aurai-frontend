@@ -86,11 +86,13 @@ export const ProductCard: React.FC<Props> = ({ product }) => {
       </div>
 
       {/* Description */}
-      <div className="flex flex-col w-full min-h-[60px]">
-        <p className="font-sans font-medium text-sm leading-5 tracking-tight text-[#62748E] line-clamp-3">
-          {product.description || 'Lorem ipsum dolor sit amet consectetur. Nulla vehicula amet eget enim urna pretium viverra.'}
-        </p>
-      </div>
+      {product.description && (
+        <div className="flex flex-col w-full min-h-[60px]">
+          <p className="font-sans font-medium text-sm leading-5 tracking-tight text-[#62748E] line-clamp-3">
+            {product.description}
+          </p>
+        </div>
+      )}
 
       {/* Divider */}
       <div className="w-full h-px bg-border shrink-0" />

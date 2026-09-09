@@ -103,7 +103,11 @@ export const ExploreAccountsView: React.FC<Props> = ({ batch, beginTransition, o
             return;
         }
         try {
-            const added = await addAccount.mutateAsync({ domains: [...selectedDomains] });
+            // Send the batch's account source along with the selected domains
+            const added = await addAccount.mutateAsync({
+                domains: [...selectedDomains],
+                account_source: batch.account_source || undefined,
+            });
             // Only genuinely-new accounts count — duplicates are skipped
             const fresh = filterNewAccounts(added, accounts);
             if (fresh.length === 0) {

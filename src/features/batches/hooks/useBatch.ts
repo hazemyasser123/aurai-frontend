@@ -14,6 +14,9 @@ export const useBatch = (batchId: string, options?: UseBatchOptions) => {
     enabled: !!batchId,
     // Fresh cached data satisfies status guards on backward navigation.
     // Explicit invalidations (find accounts, update batch, ...) still refetch active queries.
-    staleTime: options?.skipRefetchOnMount ? Infinity : 0,
+    staleTime: options?.skipRefetchOnMount ? Infinity : 60_000,
+    // Detail data only changes through in-app actions, which invalidate it —
+    // no focus refetch (cuts redundant GET /batches/:id calls)
+    refetchOnWindowFocus: false,
   });
 };

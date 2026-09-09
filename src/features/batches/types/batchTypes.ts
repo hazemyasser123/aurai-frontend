@@ -116,6 +116,7 @@ export interface CreateBatchPayload {
 
 export interface AddBatchAccountPayload {
   domains: string[];
+  account_source?: AccountSource;
 }
 
 export interface SearchAccountCandidatesPayload {
@@ -157,6 +158,8 @@ export interface FetchMoreAccountsPayload {
 export interface EnrichAndEvaluatePayload {
   account_ids: string[];
   product_analysis?: ProductAnalysis;
+  /** Re-run enrichment/ranking even for accounts already enriched (used by Re-rank) */
+  force_reevaluate?: boolean;
 }
 
 export interface Contact {
