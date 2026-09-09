@@ -64,7 +64,8 @@ const ProductsPage: React.FC = () => {
       );
     }
     if (filtered.length === 0) {
-      return <ProductsEmptyState onRegister={handleRegister} />;
+      const isFiltered = search.trim() !== '' || typeFilter !== 'all' || statusFilter !== 'all';
+      return <ProductsEmptyState onRegister={handleRegister} isFiltered={isFiltered} />;
     }
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

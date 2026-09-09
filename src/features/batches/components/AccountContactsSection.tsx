@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Card, Modal, InputField } from '@/shared/components/ui';
-import { FiSearch, FiPlus, FiChevronRight } from 'react-icons/fi';
+import { FiSearch, FiPlus, FiChevronRight, FiLock } from 'react-icons/fi';
 import { ContactCard } from '@/features/batches/components/ContactCard';
 import { FindContactsModal } from '@/features/batches/components/FindContactsModal';
 import { useAddManualContact } from '@/features/batches/hooks/useAddManualContact';
@@ -14,10 +14,13 @@ interface AccountContactsSectionProps {
     account: Account;
     contacts: Contact[];
     batchId?: string;
+    /** Contact ids that already have a drafted/sent conversation — shown as a locked list */
+    draftedContactIds?: Set<string>;
     onViewDetails: (contact: Contact) => void;
 }
 
-export const AccountContactsSection: React.FC<AccountContactsSectionProps> = ({ account, contacts, batchId, onViewDetails }) => {
+export const AccountContactsSection: React.FC<AccountContactsSectionProps> = ({ account, contacts, batchId, draftedContactIds, onViewDetails }) => {
+    const draftedIds = draftedContactIds ?? new Set<string>();
     const navigate = useNavigate();
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isFindModalOpen, setIsFindModalOpen] = useState(false);
@@ -131,8 +134,10 @@ export const AccountContactsSection: React.FC<AccountContactsSectionProps> = ({ 
         }
     };
 
-    const recommended = contacts.filter(c => c.is_recommended);
-    const others = contacts.filter(c => !c.is_recommended);
+    // Three groups per account: already drafted (locked), selected, unselected
+    const drafted = contacts.filter(c => draftedIds.has(c.id));
+    const selected = contacts.filter(c => !draftedIds.has(c.id) && c.is_recommended);
+    const unselected = contacts.filter(c => !draftedIds.has(c.id) && !c.is_recommended);
 
     return (
         <Card variant="elevated" className="flex flex-col gap-6 mb-6">
@@ -185,24 +190,37 @@ export const AccountContactsSection: React.FC<AccountContactsSectionProps> = ({ 
                 </div>
             </div>
 
-            {/* Selected Contacts */}
-            {recommended.length > 0 && (
+            {/* Drafted Contacts — locked list, already drafted/sent */}
+            {drafted.length > 0 && (
                 <div className="flex flex-col gap-2">
-                    <h4 className="font-sans font-semibold text-sm text-primary">Selected Contact(s)</h4>
+                    <h4 className="font-sans font-semibold text-sm text-fg-muted flex items-center gap-1.5">
+                        <FiLock className="w-3.5 h-3.5" />
+                        Drafted ({drafted.length})
+                    </h4>
                     <div className="bg-bg-page p-4 rounded-lg flex flex-col">
-                        {recommended.map(contact => <ContactCard key={contact.id} contact={contact} accountId={account.id} batchId={batchId} onViewDetails={onViewDetails} />)}
+                        {drafted.map(contact => <ContactCard key={contact.id} contact={contact} accountId={account.id} batchId={batchId} locked onViewDetails={onViewDetails} />)}
                     </div>
                 </div>
             )}
 
-            {/* All Contacts */}
+            {/* Selected Contacts */}
+            {selected.length > 0 && (
+                <div className="flex flex-col gap-2">
+                    <h4 className="font-sans font-semibold text-sm text-primary">Selected ({selected.length})</h4>
+                    <div className="bg-bg-page p-4 rounded-lg flex flex-col">
+                        {selected.map(contact => <ContactCard key={contact.id} contact={contact} accountId={account.id} batchId={batchId} onViewDetails={onViewDetails} />)}
+                    </div>
+                </div>
+            )}
+
+            {/* Unselected Contacts */}
             <div className="flex flex-col gap-2">
-                <h4 className="font-sans font-semibold text-sm text-primary">All Contacts ({others.length})</h4>
+                <h4 className="font-sans font-semibold text-sm text-primary">Unselected ({unselected.length})</h4>
                 <div className="bg-bg-page p-4 rounded-lg flex flex-col">
-                    {others.length > 0 ? (
-                        others.map(contact => <ContactCard key={contact.id} contact={contact} accountId={account.id} batchId={batchId} onViewDetails={onViewDetails} />)
+                    {unselected.length > 0 ? (
+                        unselected.map(contact => <ContactCard key={contact.id} contact={contact} accountId={account.id} batchId={batchId} onViewDetails={onViewDetails} />)
                     ) : (
-                        <p className="text-sm text-fg-body text-center py-4">No other contacts found.</p>
+                        <p className="text-sm text-fg-body text-center py-4">No unselected contacts.</p>
                     )}
                 </div>
             </div>

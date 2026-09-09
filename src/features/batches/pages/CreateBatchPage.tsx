@@ -7,6 +7,7 @@ import { useCreateBatch } from '@/features/batches/hooks/useCreateBatch';
 import { useProducts } from '@/features/products/hooks/useProducts';
 import { useBatchDatasources } from '@/features/batches/hooks/useBatchDatasources';
 import { createBatchSchema } from '@/features/batches/schemas/batchSchemas';
+import { batchApi } from '@/shared/queries/batches/batchApi';
 import toast from 'react-hot-toast';
 import { getErrorMessage } from '@/shared/utils/errorHandler';
 
@@ -119,10 +120,17 @@ const CreateBatchPage: React.FC = () => {
             return;
         }
 
+        // The backend requires the selected product's own Product Intelligence + ICP
+        // on create — fetched from the product's endpoints (GET /products/{id}/analysis, /icp)
+        const intelligence = await batchApi.getProductIntelligence(validation.data.base_product_id);
+
         const payload = {
             name: validation.data.name,
+            batch_name: validation.data.name,
             base_product_id: validation.data.base_product_id,
             max_results: validation.data.max_results,
+            product_analysis: intelligence.product_analysis ?? {},
+            icp: intelligence.icp ?? {},
             account_source: validation.data.account_source,
             contact_source: validation.data.contact_source,
             cc_emails: parseEmails(validation.data.cc_emails || ''),
@@ -224,6 +232,7 @@ const CreateBatchPage: React.FC = () => {
                             type="number"
                             name="max_results"
                             id="max_results"
+                            min={1}
                             placeholder="e.g., 50"
                             value={formData.max_results}
                             onChange={handleChange}

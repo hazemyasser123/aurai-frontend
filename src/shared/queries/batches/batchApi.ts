@@ -9,12 +9,17 @@ import type {
   SearchContactCandidatesPayload,
   ContactCandidate,
   AddContactCandidatesPayload,
+  ProductAnalysis,
+  Icp,
 } from "@/features/batches/types/batchTypes";
 import type {
   CreateBatchPayload,
   AddBatchAccountPayload,
   FetchMoreAccountsPayload,
   UpdateBatchPayload,
+  SearchAccountCandidatesPayload,
+  AccountCandidate,
+  ContactDetail,
   OutreachConversation,
   DraftOutreachPayload,
   UpdateOutreachPayload,
@@ -80,6 +85,20 @@ export const batchApi = {
     return response.data;
   },
 
+  // Product intelligence for the accounts flow — fetched from the product's own
+  // endpoints (GET /products/{id}/analysis, GET /products/{id}/icp). Each fetch
+  // is tolerated independently so a missing ICP doesn't lose the analysis.
+  getProductIntelligence: async (productId: string): Promise<{ product_analysis?: ProductAnalysis; icp?: Icp }> => {
+    const [analysis, icp] = await Promise.allSettled([
+      systemApi.get<ProductAnalysis>(`/products/${productId}/analysis`),
+      systemApi.get<Icp>(`/products/${productId}/icp`),
+    ]);
+    return {
+      product_analysis: analysis.status === 'fulfilled' ? analysis.value.data : undefined,
+      icp: icp.status === 'fulfilled' ? icp.value.data : undefined,
+    };
+  },
+
   getDatasources: async () => {
     const response = await systemApi.get<import("@/features/batches/types/batchTypes").BatchDatasources>("/batches/datasources");
     return response.data;
@@ -136,6 +155,15 @@ export const batchApi = {
     return response.data;
   },
 
+  // Search account candidates by domain — POST /batches/{id}/accounts/search ({ query })
+  searchAccountCandidates: async (batchId: string, payload: SearchAccountCandidatesPayload) => {
+    const response = await systemApi.post<AccountCandidate[]>(
+      `/batches/${batchId}/accounts/search`,
+      payload,
+    );
+    return response.data;
+  },
+
   // New: Fetch more accounts automatically
   fetchMoreAccounts: async (
     batchId: string,
@@ -185,6 +213,18 @@ export const batchApi = {
       `/accounts/${accountId}/contacts`,
       payload,
     );
+    return response.data;
+  },
+
+  // New: Get Contact Details — GET /contacts/{id}
+  getContact: async (contactId: string) => {
+    const response = await systemApi.get<ContactDetail>(`/contacts/${contactId}`);
+    return response.data;
+  },
+
+  // Enrich a single contact — POST /contacts/{id}/enrich
+  enrichContact: async (contactId: string) => {
+    const response = await systemApi.post<ContactDetail>(`/contacts/${contactId}/enrich`);
     return response.data;
   },
 
@@ -477,8 +517,8 @@ export const batchApi = {
           enable_auto_followup: b.enable_auto_followup as boolean | undefined,
           followup_delay_days: b.followup_delay_days as number | undefined,
           // preserve product intelligence & ICP if present
-          ...(b.product_analysis ? { product_analysis: b.product_analysis as unknown } : {}),
-          ...(b.icp ? { icp: b.icp as unknown } : {}),
+          ...(b.product_analysis ? { product_analysis: b.product_analysis as ProductAnalysis } : {}),
+          ...(b.icp ? { icp: b.icp as Icp } : {}),
           // preserve reply delay settings if backend stores them on batch
           ...(b.reply_delay_enabled !== undefined ? { reply_delay_enabled: b.reply_delay_enabled } : {}),
           ...(b.reply_timezone ? { reply_timezone: b.reply_timezone } : {}),

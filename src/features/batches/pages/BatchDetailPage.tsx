@@ -11,10 +11,9 @@ import { BatchOverviewTab } from '@/features/batches/components/tabs/BatchOvervi
 import { ProductIntelligenceTab } from '@/features/batches/components/tabs/ProductIntelligenceTab';
 import { IcpTab } from '@/features/batches/components/tabs/IcpTab';
 import { AccountsTab } from '@/features/batches/components/tabs/AccountsTab';
-import { ContactsFetchedView } from '@/features/batches/components/contactsFetched/ContactsFetchedView';
 import { CloneBatchModal } from '@/features/batches/components/CloneBatchModal';
 import { BatchCardSkeleton } from '@/features/batches/components/BatchCardSkeleton';
-import { getBatchStep } from '@/features/batches/utils/batchFlow';
+import { getBatchStep, getStepIndex, rememberVerifiedStep } from '@/features/batches/utils/batchFlow';
 import type { Batch } from '@/features/batches/types/batchTypes';
 import type { UpdateBatchPayload } from '@/features/batches/types/batchTypes';
 import toast from 'react-hot-toast';
@@ -46,8 +45,21 @@ const BatchDetailPage: React.FC = () => {
     // Sync local state when API data is loaded
     useEffect(() => {
         if (fetchedBatch) {
-            setFormData(fetchedBatch);
+            setFormData((prev) => {
+                // Don't let a refetch clobber a locally-confirmed forward status with a
+                // stale one (e.g. the server persisting the flip a beat after the
+                // action response confirmed it). Equal or forward statuses apply.
+                if (
+                    prev &&
+                    getStepIndex(getBatchStep(prev.status)) > getStepIndex(getBatchStep(fetchedBatch.status))
+                ) {
+                    return prev;
+                }
+                return fetchedBatch;
+            });
             setOriginalProductAnalysis(JSON.stringify(fetchedBatch.product_analysis || {}));
+            // Record the furthest verified step so flow pages skip refetches when navigating back
+            rememberVerifiedStep(batchId || '', fetchedBatch.status);
         }
     }, [fetchedBatch]);
 
@@ -112,10 +124,13 @@ const BatchDetailPage: React.FC = () => {
 
         const payload: UpdateBatchPayload = {
             name: formData.name,
+            batch_name: formData.name,
             base_product_id: formData.base_product_id || undefined,
             status: formData.status,
             product_analysis: formData.product_analysis,
             icp: formData.icp,
+            account_source: formData.account_source || undefined,
+            contact_source: formData.contact_source || undefined,
             cc_emails: formData.cc_emails,
             bcc_emails: formData.bcc_emails,
             human_action_loop_emails: formData.human_action_loop_emails,
@@ -124,7 +139,7 @@ const BatchDetailPage: React.FC = () => {
             ...(followupOn && formData.followup_delay_days != null
                 ? { followup_delay_days: Number(formData.followup_delay_days) }
                 : {}),
-            max_results: formData.max_results != null ? Number(formData.max_results) : undefined,
+            max_results: formData.max_results != null ? Math.max(1, Number(formData.max_results)) : undefined,
             reply_delay_enabled: replyDelayOn,
             ...(replyDelayOn
                 ? {
@@ -138,10 +153,12 @@ const BatchDetailPage: React.FC = () => {
                 : {}),
         };
 
-        // If Product Intelligence was edited, ask whether to re-rank contacts
+        // If Product Intelligence was edited, ask whether to re-rank contacts —
+        // but only when the batch has contacts to re-rank (enriched or higher).
         const currentPI = JSON.stringify(formData.product_analysis || {});
         const hasPIEdit = originalProductAnalysis !== null && currentPI !== originalProductAnalysis;
-        if (hasPIEdit) {
+        const canRerank = getStepIndex(getBatchStep(formData.status)) >= getStepIndex('enrich');
+        if (hasPIEdit && canRerank) {
             setPendingPayload(payload);
             setIsRerankOpen(true);
             return;
@@ -208,14 +225,15 @@ const BatchDetailPage: React.FC = () => {
 
     const lowerStatus = (formData?.status || '').toLowerCase();
     const batchStep = getBatchStep(lowerStatus);
-    // Only these statuses render the outreached accounts view inline on this page
-    const isOutreached = batchStep === 'outreached';
     const canDelete = batchStep !== 'outreached';
 
-    // Clicking Accounts always shows the Continue Exploring card first;
-    // the button inside then guides to the correct next page per status.
+    // Keep the URL in sync with the active tab, so back-navigation (e.g. from
+    // account/contact details) and reloads land on the same tab — not Batch Overview.
     const handleTabChange = (key: TabKey) => {
         setActiveTab(key);
+        if (batchId) {
+            navigate(`/batches/${batchId}?tab=${key}`, { replace: true });
+        }
     };
 
     const tabs = [
@@ -308,12 +326,9 @@ const BatchDetailPage: React.FC = () => {
                         batchId={formData.id}
                     />
                 )}
-                {activeTab === 'accounts' &&
-                    (isOutreached ? (
-                        <ContactsFetchedView batchId={formData.id} />
-                    ) : (
-                        <AccountsTab formData={formData} setFormData={setFormData} />
-                    ))}
+                {activeTab === 'accounts' && (
+                    <AccountsTab formData={formData} setFormData={setFormData} />
+                )}
             </div>
 
             <CloneBatchModal

@@ -85,6 +85,7 @@ export const BatchOverviewTab: React.FC<BatchOverviewTabProps> = ({ formData, ha
                         label="MAX RESULTS"
                         type="number"
                         name="max_results"
+                        min={1}
                         value={formData.max_results || 0}
                         onChange={handleChange}
                         disabled={isLocked}

@@ -1,51 +1,59 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { WithNavbar } from '@/shared/components/hoc/WithNavbar';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button, InputField, Modal } from '@/shared/components/ui';
-import { FiArrowLeft, FiArrowRight, FiSearch, FiX, FiTrash2 } from 'react-icons/fi';
+import { FiArrowRight, FiArrowLeft, FiSearch, FiX, FiTrash2 } from 'react-icons/fi';
 import { RiSearchAi3Line } from "react-icons/ri";
 import { useBatchAccounts } from '@/features/batches/hooks/useBatchAccounts';
 import { useDeleteBatchAccount } from '@/features/batches/hooks/useDeleteBatchAccount';
 import { useFindBatchContacts } from '@/features/batches/hooks/useFindBatchContacts';
-import { useBatch } from '@/features/batches/hooks/useBatch';
-import { isStepAtLeast, getStatusRoute } from '@/features/batches/utils/batchFlow';
 import { AccountCardSkeleton } from '@/features/batches/components/AccountCardSkeleton';
 import { AccountStatusBadge } from '@/features/batches/components/AccountStatusBadge';
+import { STEP_LABELS } from '@/features/batches/utils/batchFlow';
+import type { BeginTransition } from '@/features/batches/utils/batchFlow';
 import type { Account } from '@/features/batches/types/batchTypes';
 import toast from 'react-hot-toast';
 import { getErrorMessage } from '@/shared/utils/errorHandler';
 
-const EnrichAndRankPage: React.FC = () => {
-    const { batchId } = useParams<{ batchId: string }>();
+interface Props {
+    batchId: string;
+    /** Runs an action and polls the batch until the target step is confirmed (loading state handled by the tab) */
+    beginTransition: BeginTransition;
+    /** Go back to the previous flow step (view only — does not change batch status) */
+    onBack?: () => void;
+    /** Present when viewing an earlier step than the batch's current step — advances the view forward instead of re-running the action */
+    onGoForward?: () => void;
+}
+
+export const EnrichAndRankView: React.FC<Props> = ({ batchId, beginTransition, onBack, onGoForward }) => {
     const navigate = useNavigate();
 
-    const { data: accounts, isLoading } = useBatchAccounts(batchId || '');
-    const { data: batch, isLoading: isLoadingBatch } = useBatch(batchId || '');
-    const deleteAccount = useDeleteBatchAccount(batchId || '');
-    const findContacts = useFindBatchContacts(batchId || '');
-
-    // Past viewing allowed: this page requires at least 'enrich' (Enriched).
-    // If status is still Draft/Executed (before enrich), redirect to canonical (explore).
-    // If status is already past enrich (contacts/draft/outreached), user can still view via back button but primary action becomes navigation.
-    useEffect(() => {
-        if (!batch || !batchId) return;
-        if (!isStepAtLeast(batch.status, 'enrich')) {
-            navigate(getStatusRoute(batchId, batch.status), { replace: true });
-        }
-    }, [batch, batchId, navigate]);
-
-    const isPastContacts = isStepAtLeast(batch?.status, 'contacts');
+    // Keep polling while any account is still processing the enrichment
+    const { data: accounts, isLoading } = useBatchAccounts(batchId, {
+        refetchInterval: (query) => {
+            const list = query.state.data as Account[] | undefined;
+            return list?.some((a) => (a.status || '').toLowerCase() === 'processing') ? 2000 : false;
+        },
+    });
+    const deleteAccount = useDeleteBatchAccount(batchId);
+    const findContacts = useFindBatchContacts(batchId);
 
     const [searchQuery, setSearchQuery] = useState('');
     const [accountToDelete, setAccountToDelete] = useState<Account | null>(null);
 
-    const filteredAccounts = accounts?.filter(account => {
+    // Past the explore step — accounts without a status (not yet enriched) are ignored
+    const visibleAccounts = (accounts || []).filter((a) => a.status);
+
+    // Accounts still going through enrichment
+    const processingCount = (accounts || []).filter((a) => (a.status || '').toLowerCase() === 'processing').length;
+    const isProcessing = processingCount > 0;
+
+    const filteredAccounts = visibleAccounts.filter(account => {
         const lowerCaseQuery = searchQuery.toLowerCase();
         return (
             account.name.toLowerCase().includes(lowerCaseQuery) ||
             account.domain.toLowerCase().includes(lowerCaseQuery)
         );
-    }) || [];
+    });
 
     const handleConfirmDelete = async () => {
         if (!accountToDelete) return;
@@ -59,28 +67,30 @@ const EnrichAndRankPage: React.FC = () => {
     };
 
     const handleFindContacts = async () => {
-        if (!accounts || accounts.length === 0) {
+        if (isProcessing) return;
+        if (visibleAccounts.length === 0) {
             toast.error("No accounts to find contacts for");
             return;
         }
-        try {
-            const accountIds = accounts.map((a) => a.id);
-            await findContacts.mutateAsync({ account_ids: accountIds });
-            toast.success("Contacts search started");
-            navigate(`/batches/${batchId}/contacts`);
-        } catch (error) {
-            toast.error(getErrorMessage(error));
-        }
+        // Only enriched (non-null-status) accounts are sent — pending ones are ignored
+        const accountIds = visibleAccounts.map((a) => a.id);
+        await beginTransition(
+            () => findContacts.mutateAsync({ account_ids: accountIds }),
+            'contacts',
+            'Finding contacts'
+        );
     };
 
     return (
-        <div className="w-full pb-12">
-            {/* Hero Header */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 sm:mb-8">
+        <div className="flex flex-col gap-6">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div className="flex items-center gap-3">
-                    <button onClick={() => navigate(`/batches/${batchId}/accounts`)} className="p-1.5 rounded-md text-fg hover:bg-bg-muted transition-colors">
-                        <FiArrowLeft className="w-5 h-5" />
-                    </button>
+                    {onBack && (
+                        <button onClick={onBack} title="Back to Explore Accounts" aria-label="Go back" className="p-1.5 rounded-md text-fg hover:bg-bg-muted transition-colors">
+                            <FiArrowLeft className="w-5 h-5" />
+                        </button>
+                    )}
                     <div>
                         <h2 className="font-sans font-bold text-xl sm:text-2xl tracking-tight text-fg">Enrich & Rank Accounts</h2>
                         <p className="font-sans font-medium text-sm text-fg-body mt-1">
@@ -88,42 +98,42 @@ const EnrichAndRankPage: React.FC = () => {
                         </p>
                     </div>
                 </div>
-                <div className="flex items-center gap-4 w-full sm:w-auto">
+                {onGoForward ? (
                     <Button
                         variant="outline"
                         className="w-full sm:w-auto"
-                        onClick={() => navigate(`/batches/${batchId}/accounts`)}
+                        onClick={onGoForward}
                     >
-                        <FiArrowLeft className="w-4 h-4" />
-                        Explore Accounts
+                        Go to {STEP_LABELS.contacts}
+                        <FiArrowRight className="w-4 h-4" />
                     </Button>
-                    {isPastContacts ? (
-                        <Button
-                            variant="outline"
-                            className="w-full sm:w-auto"
-                            onClick={() => navigate(`/batches/${batchId}/contacts`)}
-                        >
-                            View Contacts
-                            <FiArrowRight className="w-4 h-4" />
-                        </Button>
-                    ) : (
-                        <Button
-                            variant="gradient"
-                            className="w-full sm:w-auto"
-                            onClick={handleFindContacts}
-                            isLoading={findContacts.isPending}
-                            disabled={findContacts.isPending}
-                        >
-                            <RiSearchAi3Line className="w-4 h-4" />
-                            Find Contacts
-                            <FiArrowRight className="w-4 h-4" />
-                        </Button>
-                    )}
-                </div>
+                ) : (
+                    <Button
+                        variant="gradient"
+                        className="w-full sm:w-auto"
+                        onClick={handleFindContacts}
+                        isLoading={findContacts.isPending}
+                        disabled={findContacts.isPending || isProcessing}
+                    >
+                        <RiSearchAi3Line className="w-4 h-4" />
+                        Find Contacts
+                        <FiArrowRight className="w-4 h-4" />
+                    </Button>
+                )}
             </div>
 
+            {/* Enrichment in progress — poll until all accounts finish processing */}
+            {isProcessing && (
+                <div className="flex items-center gap-3 px-4 py-3 bg-bg-purple-50 border border-border rounded-xl">
+                    <div className="w-5 h-5 rounded-full border-2 border-border border-t-primary animate-spin shrink-0" />
+                    <p className="font-sans text-sm text-fg-body">
+                        Enriching &amp; ranking accounts — <span className="font-semibold text-fg">{processingCount}</span> account(s) still processing…
+                    </p>
+                </div>
+            )}
+
             {/* Controllers */}
-            <div className="flex flex-col md:flex-row items-start md:items-center gap-4 mb-6">
+            <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
                 <h3 className="font-sans font-medium text-xl text-fg whitespace-nowrap">Accounts ({filteredAccounts.length})</h3>
                 <div className="relative w-full md:max-w-md">
                     <InputField
@@ -145,7 +155,7 @@ const EnrichAndRankPage: React.FC = () => {
             </div>
 
             {/* Account Cards Grid */}
-            {isLoading || isLoadingBatch ? (
+            {isLoading ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {Array.from({ length: 6 }).map((_, i) => (
                         <AccountCardSkeleton key={i} />
@@ -154,22 +164,26 @@ const EnrichAndRankPage: React.FC = () => {
             ) : filteredAccounts.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-64 text-center border border-dashed border-border rounded-xl">
                     <FiSearch className="w-10 h-10 text-fg-muted mb-4" />
-                    <p className="text-fg-body font-medium">No accounts found matching "{searchQuery}"</p>
-                    <button
-                        className="text-sm text-primary hover:underline mt-2"
-                        onClick={() => setSearchQuery('')}
-                    >
-                        Clear search
-                    </button>
+                    {searchQuery ? (
+                        <>
+                            <p className="text-fg-body font-medium">No accounts found matching "{searchQuery}"</p>
+                            <button
+                                className="text-sm text-primary hover:underline mt-2"
+                                onClick={() => setSearchQuery('')}
+                            >
+                                Clear search
+                            </button>
+                        </>
+                    ) : (
+                        <p className="text-fg-body font-medium">No accounts yet — go back to Explore Accounts to add some.</p>
+                    )}
                 </div>
             ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredAccounts.map((account) => {
                         // FIX: Check for 'error' and 'processing' (case-insensitive)
                         const lowerStatus = account.status?.toLowerCase() || '';
-                        const batchLower = (batch?.status || '').toLowerCase();
-                        const isExecutedPhase = batchLower === 'executed';
-                        const isDisabled = lowerStatus === 'error' || lowerStatus === 'processing' || isExecutedPhase;
+                        const isDisabled = lowerStatus === 'error' || lowerStatus === 'processing';
 
                         return (
                             <div key={account.id} className="bg-bg-sidebar border border-border rounded-xl p-6 flex flex-col gap-6 relative hover:shadow-card transition-shadow min-h-[177px]">
@@ -205,7 +219,6 @@ const EnrichAndRankPage: React.FC = () => {
                                         variant="ghost"
                                         className="py-1 px-2 h-8 text-xs"
                                         disabled={isDisabled}
-                                        title={isExecutedPhase ? 'Company details unavailable until enrichment — enrich first' : undefined}
                                         onClick={() => navigate(`/batches/${batchId}/accounts/${account.id}`)}
                                     >
                                         View Full Details
@@ -253,5 +266,3 @@ const EnrichAndRankPage: React.FC = () => {
         </div>
     );
 };
-
-export default WithNavbar(EnrichAndRankPage);

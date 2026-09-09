@@ -10,8 +10,9 @@ export const useUpdateBatch = (batchId: string) => {
     mutationFn: (payload: UpdateBatchPayload) =>
       batchApi.updateBatch(batchId, payload),
     onSuccess: () => {
+      // detail(batchId) prefix also covers accounts(batchId); lists refreshes the batch cards
       queryClient.invalidateQueries({ queryKey: batchKeys.detail(batchId) });
-      queryClient.invalidateQueries({ queryKey: batchKeys.all });
+      queryClient.invalidateQueries({ queryKey: batchKeys.lists });
     },
   });
 };

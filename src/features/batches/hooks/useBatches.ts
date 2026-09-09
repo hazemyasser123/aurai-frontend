@@ -4,7 +4,7 @@ import { batchKeys } from "@/shared/queries/batches/batchQueries";
 
 export const useBatches = () => {
   return useQuery({
-    queryKey: batchKeys.all,
+    queryKey: batchKeys.lists,
     queryFn: batchApi.getBatches,
   });
 };

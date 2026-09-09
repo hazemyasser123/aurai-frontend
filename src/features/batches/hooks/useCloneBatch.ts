@@ -8,7 +8,8 @@ export const useCloneBatch = () => {
     mutationFn: ({ batchId, batchName }: { batchId: string; batchName: string }) =>
       batchApi.cloneBatch(batchId, batchName),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: batchKeys.all });
+      // Clone only adds a new batch — the source batch's detail is unchanged
+      queryClient.invalidateQueries({ queryKey: batchKeys.lists });
     },
   });
 };

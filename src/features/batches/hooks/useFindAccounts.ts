@@ -8,11 +8,11 @@ export const useFindAccounts = () => {
   return useMutation({
     mutationFn: (payload: FindAccountsPayload) => batchApi.findAccounts(payload),
     onSuccess: (_data, variables) => {
+      // detail(id) prefix also covers accounts(id); lists refreshes the batch cards
       if (variables.id) {
         queryClient.invalidateQueries({ queryKey: batchKeys.detail(variables.id) });
-        queryClient.invalidateQueries({ queryKey: batchKeys.accounts(variables.id) });
       }
-      queryClient.invalidateQueries({ queryKey: batchKeys.all });
+      queryClient.invalidateQueries({ queryKey: batchKeys.lists });
     },
   });
 };

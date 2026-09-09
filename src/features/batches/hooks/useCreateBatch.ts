@@ -10,7 +10,7 @@ export const useCreateBatch = () => {
     mutationKey: batchKeys.create,
     mutationFn: (payload: CreateBatchPayload) => batchApi.createBatch(payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: batchKeys.all });
+      queryClient.invalidateQueries({ queryKey: batchKeys.lists });
     },
   });
 };

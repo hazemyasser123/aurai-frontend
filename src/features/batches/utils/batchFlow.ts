@@ -24,35 +24,67 @@ export function getBatchStep(status?: string | null): BatchFlowStep {
 
 export const STEP_ORDER: BatchFlowStep[] = ['explore', 'executed', 'enrich', 'contacts', 'draft', 'outreached'];
 
+export const STEP_LABELS: Record<BatchFlowStep, string> = {
+    explore: 'Ready to Find Accounts',
+    executed: 'Explore Accounts',
+    enrich: 'Enrich & Rank',
+    contacts: 'Batch Contacts',
+    draft: 'Draft Messages',
+    outreached: 'Outreached',
+};
+
+/** The canonical status value the backend sets when a step completes */
+export const STEP_STATUS: Record<BatchFlowStep, string> = {
+    explore: 'Draft',
+    executed: 'Executed',
+    enrich: 'Enriched',
+    contacts: 'contacts fetched',
+    draft: 'emails drafted',
+    outreached: 'outriched',
+};
+
+/** A status-transition callback — runs an action, then confirms the new step either
+ *  from the action's response (when `validate` is provided) or by polling the batch
+ *  detail until its status reaches the target step. Fails → previous state + toast. */
+export interface TransitionOptions {
+    /** Validate the action's response. When provided, the response itself confirms the
+     *  step (no batch polling). Returning false fails the transition immediately. */
+    validate?: (result: unknown) => boolean;
+    /** Message shown as an info toast when validation fails */
+    validationMessage?: string;
+    /** Skip the blocking loading overlay — the caller disables its own buttons instead */
+    silent?: boolean;
+}
+
+export type BeginTransition = (
+    action: () => Promise<unknown>,
+    targetStep: BatchFlowStep,
+    label: string,
+    options?: TransitionOptions
+) => Promise<boolean>;
+
 export function getStepIndex(step: BatchFlowStep): number {
     return STEP_ORDER.indexOf(step);
 }
 
-/** True if current status is at or past the required step — allows viewing past pages without redirect */
-export function isStepAtLeast(currentStatus: string | null | undefined, requiredStep: BatchFlowStep): boolean {
-    return getStepIndex(getBatchStep(currentStatus)) >= getStepIndex(requiredStep);
-}
+// Session-scoped memory of the furthest flow step each batch has been verified at
+// (i.e. a flow page rendered with batch data whose status passed its guard).
+// Lets flow pages skip redundant GET /batches/:id refetches when the user moves
+// BACKWARDS in the flow — the batch can only have advanced further, so the cached
+// status is always sufficient for the guards. Forward entries still refetch.
+const verifiedStepByBatch = new Map<string, BatchFlowStep>();
 
-export function getStepRoute(batchId: string, step: BatchFlowStep): string {
-    switch (step) {
-        case 'executed':
-            // Executed = explored accounts found (right after Draft) — show explored accounts
-            return `/batches/${batchId}/accounts`;
-        case 'enrich':
-            return `/batches/${batchId}/accounts/enrich`;
-        case 'contacts':
-            return `/batches/${batchId}/contacts`;
-        case 'draft':
-            return `/batches/${batchId}/draft`;
-        case 'outreached':
-            return `/batches/${batchId}?tab=accounts`;
-        case 'explore':
-        default:
-            return `/batches/${batchId}/accounts`;
+export function rememberVerifiedStep(batchId: string, status?: string | null): void {
+    if (!batchId) return;
+    const step = getBatchStep(status);
+    const prev = verifiedStepByBatch.get(batchId);
+    if (prev === undefined || getStepIndex(step) > getStepIndex(prev)) {
+        verifiedStepByBatch.set(batchId, step);
     }
 }
 
-/** Canonical route the user should be on for this batch's current status */
-export function getStatusRoute(batchId: string, status?: string | null): string {
-    return getStepRoute(batchId, getBatchStep(status));
+/** True if this batch has already been verified at or past `step` (backward/lateral navigation) */
+export function hasVerifiedStep(batchId: string, step: BatchFlowStep): boolean {
+    const verified = verifiedStepByBatch.get(batchId);
+    return verified !== undefined && getStepIndex(verified) >= getStepIndex(step);
 }

@@ -40,10 +40,11 @@ export const ProductsFilters: React.FC<Props> = ({
             <option value="all">All Types</option>
             <option value="Product">Product</option>
             <option value="Service">Service</option>
+            <option value="Solution">Solution</option>
           </select>
-          <span className="absolute left-3 top-2 font-sans font-bold text-xs text-fg-muted pointer-events-none">Types:</span>
-          <span className="absolute left-3 bottom-1.5 font-sans font-medium text-xs text-fg-muted pointer-events-none truncate pr-6">
-            {typeFilter === 'all' ? 'All Types' : typeFilter}
+          <span className="absolute inset-y-0 left-3 right-9 flex items-center gap-1.5 font-sans text-xs pointer-events-none truncate">
+            <span className="font-bold text-fg-muted shrink-0">Types:</span>
+            <span className="font-medium text-fg-strong truncate">{typeFilter === 'all' ? 'All Types' : typeFilter}</span>
           </span>
           <FiChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-muted pointer-events-none" />
         </div>
@@ -60,9 +61,9 @@ export const ProductsFilters: React.FC<Props> = ({
             <option value="Processing">Processing</option>
             <option value="Failed">Failed</option>
           </select>
-          <span className="absolute left-3 top-2 font-sans font-bold text-xs text-fg-muted pointer-events-none">Status:</span>
-          <span className="absolute left-3 bottom-1.5 font-sans font-medium text-xs text-fg-muted pointer-events-none truncate pr-6">
-            {statusFilter === 'all' ? 'All Statuses' : statusFilter}
+          <span className="absolute inset-y-0 left-3 right-9 flex items-center gap-1.5 font-sans text-xs pointer-events-none truncate">
+            <span className="font-bold text-fg-muted shrink-0">Status:</span>
+            <span className="font-medium text-fg-strong truncate">{statusFilter === 'all' ? 'All Statuses' : statusFilter}</span>
           </span>
           <FiChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-muted pointer-events-none" />
         </div>

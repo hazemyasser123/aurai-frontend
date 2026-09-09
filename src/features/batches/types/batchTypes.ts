@@ -91,8 +91,12 @@ export interface Batch {
 // Request shapes
 export interface CreateBatchPayload {
   name: string;
+  batch_name?: string;
   base_product_id?: string;
   max_results?: number;
+  // Required by the backend — the selected product's own intelligence
+  product_analysis?: ProductAnalysis;
+  icp?: Icp;
   account_source?: AccountSource;
   contact_source?: ContactSource;
   cc_emails?: string[];
@@ -114,12 +118,45 @@ export interface AddBatchAccountPayload {
   domains: string[];
 }
 
+export interface SearchAccountCandidatesPayload {
+  query: string;
+}
+
+export interface AccountCandidate {
+  domain: string;
+  name: string;
+  logo_url: string | null;
+}
+
 export interface FetchMoreAccountsPayload {
   count_to_add: number;
+  // Full batch context — same shape as find-accounts (Batch Overview + Product Intelligence + ICP)
+  name?: string;
+  batch_name?: string;
+  base_product_id?: string;
+  max_results?: number;
+  account_source?: AccountSource;
+  contact_source?: ContactSource;
+  product_analysis?: ProductAnalysis;
+  icp?: Icp;
+  cc_emails?: string[];
+  bcc_emails?: string[];
+  human_action_loop_emails?: string[];
+  forward_emails?: string[];
+  enable_auto_followup?: boolean;
+  followup_delay_days?: number;
+  reply_delay_enabled?: boolean;
+  reply_timezone?: string;
+  reply_working_days?: number[];
+  reply_working_hours_start?: string;
+  reply_working_hours_end?: string;
+  reply_base_delay_minutes?: number;
+  reply_delay_buffer_minutes?: number;
 }
 
 export interface EnrichAndEvaluatePayload {
   account_ids: string[];
+  product_analysis?: ProductAnalysis;
 }
 
 export interface Contact {
@@ -137,6 +174,40 @@ export interface Contact {
   linkedin_url: string | null;
   is_recommended: boolean;
   relevance_score: number;
+}
+
+export interface ContactRawSourceMetadata {
+  status?: string;
+  item?: string;
+  candidate?: {
+    uid?: string | null;
+    fullName?: string | null;
+    gender?: string | null;
+    headLine?: string | null;
+    summary?: string | null;
+    photo?: { url?: string | null } | null;
+    locations?: Array<{ name?: string | null }> | null;
+    skills?: string[];
+    experience?: unknown[];
+    education?: unknown[];
+    social?: Array<{ type?: string | null; link?: string | null; rating?: number | null }> | null;
+  } | null;
+}
+
+export interface ContactDetail {
+  id: string;
+  company_id?: string;
+  first_name: string;
+  last_name: string;
+  title?: string;
+  seniority_level?: string;
+  photo_url?: string | null;
+  raw_source_metadata?: ContactRawSourceMetadata | null;
+  primary_email?: string | null;
+  primary_phone?: string | null;
+  linkedin_url?: string | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface AccountDetails {
@@ -191,6 +262,7 @@ export interface AddContactCandidatesPayload {
 
 export interface UpdateBatchPayload {
   name?: string;
+  batch_name?: string;
   base_product_id?: string;
   status?: string;
   product_analysis?: ProductAnalysis;

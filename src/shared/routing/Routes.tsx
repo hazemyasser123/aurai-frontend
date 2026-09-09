@@ -5,11 +5,9 @@ import { LoginPage } from '@/features/auth/pages/LoginPage';
 import BatchListPage from '@/features/batches/pages/BatchListPage';
 import CreateBatchPage from '@/features/batches/pages/CreateBatchPage';
 import BatchDetailPage from '@/features/batches/pages/BatchDetailPage';
-import ExploreAccountsPage from '@/features/batches/pages/ExploreAccountsPage';
-import EnrichAndRankPage from '@/features/batches/pages/EnrichAndRankPage';
 import AccountFocusPage from '@/features/batches/pages/AccountFocusPage';
-import BatchContactsPage from '@/features/batches/pages/BatchContactsPage';
-import DraftMessagesPage from '@/features/batches/pages/DraftMessagesPage';
+import ContactDetailsPage from '@/features/batches/pages/ContactDetailsPage';
+import { FlowRedirectPage } from '@/features/batches/pages/FlowRedirectPage';
 import ProductsPage from '@/features/products/pages/ProductsPage';
 import RegisterProductPage from '@/features/products/pages/RegisterProductPage';
 import ProductSourcesPage from '@/features/products/pages/ProductSourcesPage';
@@ -41,11 +39,12 @@ export const AppRoutes: AppRoute[] = [
     { path: '/', Component: BatchListPage, protected: true },
     { path: '/batches/new', Component: CreateBatchPage, protected: true },
     { path: '/batches/:batchId', Component: BatchDetailPage, protected: true },
-    { path: '/batches/:batchId/accounts', Component: ExploreAccountsPage, protected: true },
-    { path: '/batches/:batchId/accounts/enrich', Component: EnrichAndRankPage, protected: true },
+    { path: '/batches/:batchId/accounts', Component: FlowRedirectPage, protected: true },
+    { path: '/batches/:batchId/accounts/enrich', Component: FlowRedirectPage, protected: true },
     { path: '/batches/:batchId/accounts/:accountId', Component: AccountFocusPage, protected: true },
-    { path: '/batches/:batchId/contacts', Component: BatchContactsPage, protected: true },
-    { path: '/batches/:batchId/draft', Component: DraftMessagesPage, protected: true },
+    { path: '/batches/:batchId/contacts', Component: FlowRedirectPage, protected: true },
+    { path: '/batches/:batchId/draft', Component: FlowRedirectPage, protected: true },
+    { path: '/contacts/:contactId', Component: ContactDetailsPage, protected: true },
     { path: '/conversations', Component: ConversationsPage, protected: true },
     { path: '/users', Component: UsersPage, protected: true, allowedRoles: ['ADMIN'] },
     { path: '/prompt-lab', Component: PromptLabPage, protected: true },
