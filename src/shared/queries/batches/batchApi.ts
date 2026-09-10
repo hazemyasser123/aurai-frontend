@@ -34,41 +34,67 @@ const normalizeOutreachResponse = (data: unknown): OutreachConversation[] => {
   let list: unknown[] = [];
   if (Array.isArray(data)) {
     list = data;
-  } else if (data && typeof data === 'object') {
+  } else if (data && typeof data === "object") {
     const obj = data as Record<string, unknown>;
-    for (const key of ['outreach', 'data', 'conversations', 'items', 'results']) {
-      if (Array.isArray(obj[key])) { list = obj[key] as unknown[]; break; }
+    for (const key of [
+      "outreach",
+      "data",
+      "conversations",
+      "items",
+      "results",
+    ]) {
+      if (Array.isArray(obj[key])) {
+        list = obj[key] as unknown[];
+        break;
+      }
     }
   }
 
   return list.map((raw) => {
     const item = raw as Record<string, unknown>;
-    const contact = (item.contact && typeof item.contact === 'object' ? item.contact : {}) as Record<string, unknown>;
-    const account = (item.account && typeof item.account === 'object' ? item.account : {}) as Record<string, unknown>;
+    const contact = (
+      item.contact && typeof item.contact === "object" ? item.contact : {}
+    ) as Record<string, unknown>;
+    const account = (
+      item.account && typeof item.account === "object" ? item.account : {}
+    ) as Record<string, unknown>;
     return {
-      id: String(item.id ?? ''),
+      id: String(item.id ?? ""),
       email_id: (item.email_id as string) ?? undefined,
-      contact_id: String(item.contact_id ?? contact.id ?? ''),
+      contact_id: String(item.contact_id ?? contact.id ?? ""),
       // Flatten nested contact
-      first_name: ((item.first_name ?? contact.first_name) ?? '') as string,
-      last_name: ((item.last_name ?? contact.last_name) ?? '') as string,
-      title: ((item.title ?? contact.title) ?? '') as string,
-      photo_url: ((item.photo_url ?? contact.photo_url) ?? null) as string | null,
-      account_id: String(item.account_id ?? contact.account_id ?? account.id ?? ''),
-      account_name: ((item.account_name ?? contact.account_name ?? account.name) ?? '') as string,
-      account_domain: ((item.account_domain ?? contact.account_domain ?? account.domain) ?? '') as string,
-      account_logo_url: ((item.account_logo_url ?? account.logo_url) ?? null) as string | null,
-      recipient_email: ((item.recipient_email ?? contact.primary_email) ?? null) as string | null,
+      first_name: (item.first_name ?? contact.first_name ?? "") as string,
+      last_name: (item.last_name ?? contact.last_name ?? "") as string,
+      title: (item.title ?? contact.title ?? "") as string,
+      photo_url: (item.photo_url ?? contact.photo_url ?? null) as string | null,
+      account_id: String(
+        item.account_id ?? contact.account_id ?? account.id ?? "",
+      ),
+      account_name: (item.account_name ??
+        contact.account_name ??
+        account.name ??
+        "") as string,
+      account_domain: (item.account_domain ??
+        contact.account_domain ??
+        account.domain ??
+        "") as string,
+      account_logo_url: (item.account_logo_url ?? account.logo_url ?? null) as
+        | string
+        | null,
+      recipient_email: (item.recipient_email ??
+        contact.primary_email ??
+        null) as string | null,
       channel_type: item.channel_type as string | undefined,
-      status: (item.status ?? '') as string,
-      subject: (item.subject ?? '') as string,
-      body: (item.body ?? '') as string,
+      status: (item.status ?? "") as string,
+      subject: (item.subject ?? "") as string,
+      body: (item.body ?? "") as string,
       batch_id: (item.batch_id ?? undefined) as string | undefined,
       batch_name: item.batch_name as string | undefined,
       created_at: item.created_at as string | undefined,
       updated_at: item.updated_at as string | undefined,
       last_message_at: item.last_message_at as string | undefined,
-      message_count: typeof item.message_count === 'number' ? item.message_count : undefined,
+      message_count:
+        typeof item.message_count === "number" ? item.message_count : undefined,
       classification: item.classification as string | undefined,
       needs_human_action: item.needs_human_action as boolean | undefined,
       human_action_reason: item.human_action_reason as string | undefined,
@@ -88,26 +114,35 @@ export const batchApi = {
   // Product intelligence for the accounts flow — fetched from the product's own
   // endpoints (GET /products/{id}/analysis, GET /products/{id}/icp). Each fetch
   // is tolerated independently so a missing ICP doesn't lose the analysis.
-  getProductIntelligence: async (productId: string): Promise<{ product_analysis?: ProductAnalysis; icp?: Icp }> => {
+  getProductIntelligence: async (
+    productId: string,
+  ): Promise<{ product_analysis?: ProductAnalysis; icp?: Icp }> => {
     const [analysis, icp] = await Promise.allSettled([
       systemApi.get<ProductAnalysis>(`/products/${productId}/analysis`),
       systemApi.get<Icp>(`/products/${productId}/icp`),
     ]);
     return {
-      product_analysis: analysis.status === 'fulfilled' ? analysis.value.data : undefined,
-      icp: icp.status === 'fulfilled' ? icp.value.data : undefined,
+      product_analysis:
+        analysis.status === "fulfilled" ? analysis.value.data : undefined,
+      icp: icp.status === "fulfilled" ? icp.value.data : undefined,
     };
   },
 
   getDatasources: async () => {
-    const response = await systemApi.get<import("@/features/batches/types/batchTypes").BatchDatasources>("/batches/datasources");
+    const response = await systemApi.get<
+      import("@/features/batches/types/batchTypes").BatchDatasources
+    >("/batches/datasources");
     return response.data;
   },
 
   getSeniorityLevels: async (): Promise<string[]> => {
-    const response = await systemApi.get<{ seniority_levels: string[] }>("/batches/seniority-levels");
+    const response = await systemApi.get<{ seniority_levels: string[] }>(
+      "/batches/seniority-levels",
+    );
     const data = response.data as { seniority_levels?: string[] } & unknown;
-    if (Array.isArray((data as { seniority_levels: string[] }).seniority_levels)) {
+    if (
+      Array.isArray((data as { seniority_levels: string[] }).seniority_levels)
+    ) {
       return (data as { seniority_levels: string[] }).seniority_levels;
     }
     // Fallback if API returns raw array
@@ -125,13 +160,24 @@ export const batchApi = {
     return response.data;
   },
 
-  findAccounts: async (payload: import("@/features/batches/types/batchTypes").FindAccountsPayload) => {
-    const response = await systemApi.post<Batch>("/batches/find-accounts", payload);
+  findAccounts: async (
+    payload: import("@/features/batches/types/batchTypes").FindAccountsPayload,
+  ) => {
+    const response = await systemApi.post<Batch>(
+      "/batches/find-accounts",
+      payload,
+    );
     return response.data;
   },
 
-  findBatchContacts: async (batchId: string, payload?: import("@/features/batches/types/batchTypes").FindBatchContactsPayload) => {
-    const response = await systemApi.post<Contact[]>(`/batches/${batchId}/contacts/search`, payload || {});
+  findBatchContacts: async (
+    batchId: string,
+    payload?: import("@/features/batches/types/batchTypes").FindBatchContactsPayload,
+  ) => {
+    const response = await systemApi.post<Contact[]>(
+      `/batches/${batchId}/contacts/search`,
+      payload || {},
+    );
     return response.data;
   },
 
@@ -156,7 +202,10 @@ export const batchApi = {
   },
 
   // Search account candidates by domain — POST /batches/{id}/accounts/search ({ query })
-  searchAccountCandidates: async (batchId: string, payload: SearchAccountCandidatesPayload) => {
+  searchAccountCandidates: async (
+    batchId: string,
+    payload: SearchAccountCandidatesPayload,
+  ) => {
     const response = await systemApi.post<AccountCandidate[]>(
       `/batches/${batchId}/accounts/search`,
       payload,
@@ -218,13 +267,17 @@ export const batchApi = {
 
   // New: Get Contact Details — GET /contacts/{id}
   getContact: async (contactId: string) => {
-    const response = await systemApi.get<ContactDetail>(`/contacts/${contactId}`);
+    const response = await systemApi.get<ContactDetail>(
+      `/contacts/${contactId}`,
+    );
     return response.data;
   },
 
   // Enrich a single contact — POST /contacts/{id}/enrich
   enrichContact: async (contactId: string) => {
-    const response = await systemApi.post<ContactDetail>(`/contacts/${contactId}/enrich`);
+    const response = await systemApi.post<ContactDetail>(
+      `/contacts/${contactId}/enrich`,
+    );
     return response.data;
   },
 
@@ -268,21 +321,26 @@ export const batchApi = {
   },
 
   updateBatch: async (batchId: string, payload: UpdateBatchPayload) => {
-    const response = await systemApi.put<Batch>(
-      `/batches/${batchId}`,
-      payload,
-    );
+    const response = await systemApi.put<Batch>(`/batches/${batchId}`, payload);
     return response.data;
   },
 
   // Outreach — Draft & Send
   getBatchOutreach: async (batchId: string) => {
-    const response = await systemApi.get<unknown>(`/batches/${batchId}/outreach`);
+    const response = await systemApi.get<unknown>(
+      `/batches/${batchId}/outreach`,
+    );
     return normalizeOutreachResponse(response.data);
   },
 
-  draftBatchOutreach: async (batchId: string, payload: DraftOutreachPayload) => {
-    const response = await systemApi.post<unknown>(`/batches/${batchId}/outreach/draft`, payload);
+  draftBatchOutreach: async (
+    batchId: string,
+    payload: DraftOutreachPayload,
+  ) => {
+    const response = await systemApi.post<unknown>(
+      `/batches/${batchId}/outreach/draft`,
+      payload,
+    );
     return normalizeOutreachResponse(response.data);
   },
 
@@ -312,34 +370,58 @@ export const batchApi = {
     return response.data;
   },
 
-  getOutreachThread: async (conversationId: string): Promise<OutreachThread> => {
+  getOutreachThread: async (
+    conversationId: string,
+  ): Promise<OutreachThread> => {
     const response = await systemApi.get<unknown>(
       `/outreach/conversations/${conversationId}/thread`,
     );
     const data = response.data as Record<string, unknown>;
     // Legacy nested shape vs new flat Graph shape
-    const contact = (data?.contact && typeof data.contact === 'object' ? data.contact : {}) as Record<string, unknown>;
-    const account = (data?.account && typeof data.account === 'object' ? data.account : {}) as Record<string, unknown>;
-    const email = (data?.email && typeof data.email === 'object' ? data.email : null) as Record<string, unknown> | null;
-    const rawMessages = Array.isArray(data?.messages) ? (data!.messages as unknown[]) : [];
+    const contact = (
+      data?.contact && typeof data.contact === "object" ? data.contact : {}
+    ) as Record<string, unknown>;
+    const account = (
+      data?.account && typeof data.account === "object" ? data.account : {}
+    ) as Record<string, unknown>;
+    const email = (
+      data?.email && typeof data.email === "object" ? data.email : null
+    ) as Record<string, unknown> | null;
+    const rawMessages = Array.isArray(data?.messages)
+      ? (data!.messages as unknown[])
+      : [];
 
-    const id = String((data?.conversation_id as string) ?? (data?.id as string) ?? conversationId);
-    const subject = (data?.subject as string) ?? (email?.subject as string) ?? '';
+    const id = String(
+      (data?.conversation_id as string) ??
+        (data?.id as string) ??
+        conversationId,
+    );
+    const subject =
+      (data?.subject as string) ?? (email?.subject as string) ?? "";
 
     // Normalize Graph messages (new) and legacy messages first so we can synthesize email if needed
     let messages: OutreachMessage[] = rawMessages.map((m) => {
       const msg = m as Record<string, unknown>;
-      const directionRaw = (msg.direction as string) ?? 'inbound';
-      const occurred = (msg.occurred_at as string) ?? (msg.created_at as string) ?? (msg.occurredAt as string) ?? undefined;
-      const display = (msg.display_text as string) ?? (msg.body_text as string) ?? (msg.body as string) ?? '';
-      const html = (msg.body_html as string) ?? (msg.bodyHtml as string) ?? '';
-      const body = display || html || (msg.body as string) || '';
+      const directionRaw = (msg.direction as string) ?? "inbound";
+      const occurred =
+        (msg.occurred_at as string) ??
+        (msg.created_at as string) ??
+        (msg.occurredAt as string) ??
+        undefined;
+      const display =
+        (msg.display_text as string) ??
+        (msg.body_text as string) ??
+        (msg.body as string) ??
+        "";
+      const html = (msg.body_html as string) ?? (msg.bodyHtml as string) ?? "";
+      const body = display || html || (msg.body as string) || "";
       return {
         id: (msg.graph_message_id as string) ?? (msg.id as string) ?? undefined,
         graph_message_id: msg.graph_message_id as string | undefined,
         conversation_id: (msg.conversation_id as string) ?? id,
         direction: directionRaw,
-        sender: (msg.sender as string) ?? (msg.from_address as string) ?? undefined,
+        sender:
+          (msg.sender as string) ?? (msg.from_address as string) ?? undefined,
         from_address: msg.from_address as string | undefined,
         to_addresses: msg.to_addresses as string[] | undefined,
         cc_addresses: msg.cc_addresses as string[] | undefined,
@@ -356,15 +438,17 @@ export const batchApi = {
         attachments: msg.attachments as unknown[] | undefined,
         is_ndr: msg.is_ndr as boolean | undefined,
         is_forward: msg.is_forward as boolean | undefined,
-        is_system_notification: msg.is_system_notification as boolean | undefined,
+        is_system_notification: msg.is_system_notification as
+          | boolean
+          | undefined,
       } as OutreachMessage;
     });
 
-    let normalizedEmail: OutreachThread['email'] = email
+    let normalizedEmail: OutreachThread["email"] = email
       ? {
           id: email.id as string | undefined,
           subject: (email.subject as string) ?? subject,
-          body: (email.body as string) ?? '',
+          body: (email.body as string) ?? "",
           sent_at: (email.sent_at as string | null) ?? null,
         }
       : null;
@@ -372,14 +456,22 @@ export const batchApi = {
     // If no email object but we have subject + first outbound, synthesize email for UI that expects it
     // and exclude that message from bubbles to avoid duplicate (email card + bubble)
     if (!normalizedEmail && subject && messages.length > 0) {
-      const firstOutboundIdx = messages.findIndex((mm) => (mm.direction || '').toLowerCase().includes('out'));
+      const firstOutboundIdx = messages.findIndex((mm) =>
+        (mm.direction || "").toLowerCase().includes("out"),
+      );
       if (firstOutboundIdx !== -1) {
         const firstOutbound = messages[firstOutboundIdx];
-        const outboundBodyHtml = firstOutbound.body_html || firstOutbound.bodyHtml || '';
-        const outboundBodyText = firstOutbound.display_text || firstOutbound.body_text || firstOutbound.body || '';
+        const outboundBodyHtml =
+          firstOutbound.body_html || firstOutbound.bodyHtml || "";
+        const outboundBodyText =
+          firstOutbound.display_text ||
+          firstOutbound.body_text ||
+          firstOutbound.body ||
+          "";
         // Prefer HTML for rendering (keeps signature tables), fallback to text
         const emailBody = outboundBodyHtml || outboundBodyText;
-        const outboundAt = firstOutbound.occurred_at || firstOutbound.created_at || null;
+        const outboundAt =
+          firstOutbound.occurred_at || firstOutbound.created_at || null;
         normalizedEmail = {
           subject,
           body: emailBody,
@@ -388,7 +480,7 @@ export const batchApi = {
         // Remove the original from bubbles — it will be shown as the email card
         messages = messages.filter((_, idx) => idx !== firstOutboundIdx);
       } else if (subject) {
-        normalizedEmail = { subject, body: '', sent_at: null };
+        normalizedEmail = { subject, body: "", sent_at: null };
       }
     }
 
@@ -398,24 +490,37 @@ export const batchApi = {
       external_thread_id: (data?.external_thread_id as string) ?? undefined,
       email_id: (data?.email_id as string) ?? undefined,
       batch_id: (data?.batch_id as string) ?? undefined,
-      contact_id: String(data?.contact_id ?? contact.id ?? ''),
-      account_id: String(data?.account_id ?? account.id ?? ''),
-      status: (data?.status as string) ?? '',
+      contact_id: String(data?.contact_id ?? contact.id ?? ""),
+      account_id: String(data?.account_id ?? account.id ?? ""),
+      status: (data?.status as string) ?? "",
       subject,
-      recipient_email: ((data?.recipient_email ?? contact.primary_email) ?? null) as string | null,
+      recipient_email: (data?.recipient_email ??
+        contact.primary_email ??
+        null) as string | null,
       classification: (data?.classification as string) ?? undefined,
       needs_human_action: !!data?.needs_human_action,
-      human_action_reason: (data?.human_action_reason as string | null) ?? undefined,
+      human_action_reason:
+        (data?.human_action_reason as string | null) ?? undefined,
       needs_followup: (data?.needs_followup as boolean) ?? undefined,
-      pending_reply_content: (data?.pending_reply_content as string | null) ?? undefined,
-      pending_reply_scheduled_at: (data?.pending_reply_scheduled_at as string | null) ?? undefined,
+      pending_reply_content:
+        (data?.pending_reply_content as string | null) ?? undefined,
+      pending_reply_scheduled_at:
+        (data?.pending_reply_scheduled_at as string | null) ?? undefined,
       // Flatten nested contact / keep flat fields
-      first_name: ((data?.first_name ?? contact.first_name) ?? '') as string,
-      last_name: ((data?.last_name ?? contact.last_name) ?? '') as string,
-      title: ((data?.title ?? contact.title) ?? '') as string,
-      photo_url: ((data?.photo_url ?? contact.photo_url) ?? null) as string | null,
-      account_name: ((data?.account_name ?? contact.account_name ?? account.name) ?? '') as string,
-      account_domain: ((data?.account_domain ?? contact.account_domain ?? account.domain) ?? '') as string,
+      first_name: (data?.first_name ?? contact.first_name ?? "") as string,
+      last_name: (data?.last_name ?? contact.last_name ?? "") as string,
+      title: (data?.title ?? contact.title ?? "") as string,
+      photo_url: (data?.photo_url ?? contact.photo_url ?? null) as
+        | string
+        | null,
+      account_name: (data?.account_name ??
+        contact.account_name ??
+        account.name ??
+        "") as string,
+      account_domain: (data?.account_domain ??
+        contact.account_domain ??
+        account.domain ??
+        "") as string,
       account_logo_url: (account.logo_url ?? null) as string | null,
       email: normalizedEmail,
       messages,
@@ -430,9 +535,12 @@ export const batchApi = {
   },
 
   // Conversations inbox
-  listConversations: async (params?: import("@/features/batches/types/batchTypes").ListConversationsParams) => {
+  listConversations: async (
+    params?: import("@/features/batches/types/batchTypes").ListConversationsParams,
+  ) => {
     return normalizeOutreachResponse(
-      (await systemApi.get<unknown>("/outreach/conversations", { params })).data,
+      (await systemApi.get<unknown>("/outreach/conversations", { params }))
+        .data,
     );
   },
 
@@ -441,7 +549,7 @@ export const batchApi = {
   sendManualReply: async (conversationId: string, content: string) => {
     const response = await systemApi.post<OutreachMessage>(
       `/outreach/conversations/${conversationId}/reply`,
-      { body: content },
+      { content: content },
     );
     return response.data;
   },
@@ -468,7 +576,10 @@ export const batchApi = {
         return response.data;
       } catch (err) {
         const axiosErr = err as { response?: { status?: number } };
-        if (axiosErr.response?.status === 404 || axiosErr.response?.status === 405) {
+        if (
+          axiosErr.response?.status === 404 ||
+          axiosErr.response?.status === 405
+        ) {
           lastErr = err;
           continue;
         }
@@ -478,7 +589,10 @@ export const batchApi = {
     throw lastErr;
   },
 
-  chatIcp: async (batchId: string, payload: { message: string; current_icp: unknown }) => {
+  chatIcp: async (
+    batchId: string,
+    payload: { message: string; current_icp: unknown },
+  ) => {
     const response = await systemApi.post<{
       reply: string;
       changed_fields: string[];
@@ -488,21 +602,30 @@ export const batchApi = {
   },
 
   deleteBatch: async (batchId: string) => {
-    const response = await systemApi.delete<{ detail: string; id: string }>(`/batches/${batchId}`);
+    const response = await systemApi.delete<{ detail: string; id: string }>(
+      `/batches/${batchId}`,
+    );
     return response.data;
   },
 
   cloneBatch: async (batchId: string, batchName: string) => {
     // Try dedicated clone endpoint if backend provides it — uses `name` per spec
     try {
-      const response = await systemApi.post<Batch>(`/batches/${batchId}/clone`, {
-        name: batchName,
-      });
+      const response = await systemApi.post<Batch>(
+        `/batches/${batchId}/clone`,
+        {
+          name: batchName,
+        },
+      );
       return response.data;
     } catch (err: unknown) {
       const axiosErr = err as { response?: { status?: number } };
       // If endpoint doesn't exist (404/405), fallback to manual clone via create
-      if (axiosErr.response?.status === 404 || axiosErr.response?.status === 405 || axiosErr.response?.status === 422) {
+      if (
+        axiosErr.response?.status === 404 ||
+        axiosErr.response?.status === 405 ||
+        axiosErr.response?.status === 422
+      ) {
         const original = await systemApi.get<Batch>(`/batches/${batchId}`);
         const b = original.data as Batch & Record<string, unknown>;
         // Build create payload copying everything except id/status/created_at — uses `name`
@@ -512,21 +635,37 @@ export const batchApi = {
           max_results: b.max_results as number | undefined,
           cc_emails: b.cc_emails as string[] | undefined,
           bcc_emails: b.bcc_emails as string[] | undefined,
-          human_action_loop_emails: b.human_action_loop_emails as string[] | undefined,
+          human_action_loop_emails: b.human_action_loop_emails as
+            | string[]
+            | undefined,
           forward_emails: b.forward_emails as string[] | undefined,
           enable_auto_followup: b.enable_auto_followup as boolean | undefined,
           followup_delay_days: b.followup_delay_days as number | undefined,
           // preserve product intelligence & ICP if present
-          ...(b.product_analysis ? { product_analysis: b.product_analysis as ProductAnalysis } : {}),
+          ...(b.product_analysis
+            ? { product_analysis: b.product_analysis as ProductAnalysis }
+            : {}),
           ...(b.icp ? { icp: b.icp as Icp } : {}),
           // preserve reply delay settings if backend stores them on batch
-          ...(b.reply_delay_enabled !== undefined ? { reply_delay_enabled: b.reply_delay_enabled } : {}),
+          ...(b.reply_delay_enabled !== undefined
+            ? { reply_delay_enabled: b.reply_delay_enabled }
+            : {}),
           ...(b.reply_timezone ? { reply_timezone: b.reply_timezone } : {}),
-          ...(b.reply_working_days ? { reply_working_days: b.reply_working_days } : {}),
-          ...(b.reply_working_hours_start ? { reply_working_hours_start: b.reply_working_hours_start } : {}),
-          ...(b.reply_working_hours_end ? { reply_working_hours_end: b.reply_working_hours_end } : {}),
-          ...(b.reply_base_delay_minutes ? { reply_base_delay_minutes: b.reply_base_delay_minutes } : {}),
-          ...(b.reply_delay_buffer_minutes ? { reply_delay_buffer_minutes: b.reply_delay_buffer_minutes } : {}),
+          ...(b.reply_working_days
+            ? { reply_working_days: b.reply_working_days }
+            : {}),
+          ...(b.reply_working_hours_start
+            ? { reply_working_hours_start: b.reply_working_hours_start }
+            : {}),
+          ...(b.reply_working_hours_end
+            ? { reply_working_hours_end: b.reply_working_hours_end }
+            : {}),
+          ...(b.reply_base_delay_minutes
+            ? { reply_base_delay_minutes: b.reply_base_delay_minutes }
+            : {}),
+          ...(b.reply_delay_buffer_minutes
+            ? { reply_delay_buffer_minutes: b.reply_delay_buffer_minutes }
+            : {}),
           ...(b.account_source ? { account_source: b.account_source } : {}),
           ...(b.contact_source ? { contact_source: b.contact_source } : {}),
         };
