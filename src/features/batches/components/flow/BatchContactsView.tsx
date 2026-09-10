@@ -4,7 +4,6 @@ import { Button } from '@/shared/components/ui';
 import { FiArrowLeft, FiArrowRight } from 'react-icons/fi';
 import { useBatchAccounts, useIgnoredAccountIds } from '@/features/batches/hooks/useBatchAccounts';
 import { useBatchContacts } from '@/features/batches/hooks/useBatchContacts';
-import { useBatchOutreach } from '@/features/batches/hooks/useBatchOutreach';
 import { useDraftOutreach } from '@/features/batches/hooks/useDraftOutreach';
 import { AccountContactsSection } from '@/features/batches/components/AccountContactsSection';
 import { STEP_LABELS } from '@/features/batches/utils/batchFlow';
@@ -28,7 +27,6 @@ export const BatchContactsView: React.FC<Props> = ({ batch, beginTransition, onB
     const { data: accounts, isLoading: isLoadingAccounts } = useBatchAccounts(batchId);
     const { data: contacts, isLoading: isLoadingContacts } = useBatchContacts(batchId);
     const { data: ignoredAccountIds } = useIgnoredAccountIds(batchId);
-    const { data: outreach } = useBatchOutreach(batchId);
     // The local Product Intelligence copy — sent with the draft request
     const draftOutreach = useDraftOutreach(batchId, batch.product_analysis);
 
@@ -43,18 +41,13 @@ export const BatchContactsView: React.FC<Props> = ({ batch, beginTransition, onB
         [contacts, ignoredAccountIds]
     );
 
-    // Contacts that already have a drafted/sent conversation — locked, not re-draftable
-    const draftedContactIds = useMemo(
-        () => new Set((outreach || []).map((c) => c.contact_id).filter(Boolean)),
-        [outreach]
-    );
-
-    // The contacts the next draft run will cover: selected (recommended), not yet drafted
+    // The contacts the next draft run will cover: selected contacts (recommended
+    // or already enriched) — drafted contacts are selectable like any other
     const selectedContactIds = useMemo(
         () => (visibleContacts || [])
-            .filter((c) => c.is_recommended && !draftedContactIds.has(c.id))
+            .filter((c) => c.is_recommended || c.is_enriched)
             .map((c) => c.id),
-        [visibleContacts, draftedContactIds]
+        [visibleContacts]
     );
 
     // Draft only the selected contacts — never everything.
@@ -167,7 +160,6 @@ export const BatchContactsView: React.FC<Props> = ({ batch, beginTransition, onB
                         account={group}
                         contacts={group.contacts}
                         batchId={batchId}
-                        draftedContactIds={draftedContactIds}
                         onViewDetails={(contact) => handleViewDetails(contact.id)}
                     />
                 ))

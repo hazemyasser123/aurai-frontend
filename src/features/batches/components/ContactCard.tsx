@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from '@/shared/components/ui';
-import { FiMail, FiLock } from 'react-icons/fi';
+import { FiMail } from 'react-icons/fi';
 import { FaLinkedinIn } from 'react-icons/fa';
 import type { Contact } from '@/features/batches/types/batchTypes';
 import { useToggleContactRecommend } from '@/features/batches/hooks/useToggleContactRecommend';
@@ -20,12 +20,10 @@ interface ContactCardProps {
     contact: Contact;
     accountId?: string;
     batchId?: string;
-    /** Locked — already drafted; selection cannot be changed */
-    locked?: boolean;
     onViewDetails: (contact: Contact) => void;
 }
 
-export const ContactCard: React.FC<ContactCardProps> = ({ contact, accountId, batchId, locked = false, onViewDetails }) => {
+export const ContactCard: React.FC<ContactCardProps> = ({ contact, accountId, batchId, onViewDetails }) => {
     const toggleRecommend = useToggleContactRecommend(accountId || '', batchId);
 
     const handleSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -33,23 +31,19 @@ export const ContactCard: React.FC<ContactCardProps> = ({ contact, accountId, ba
     };
 
     const email = contact.primary_email;
+    // Selected = recommended OR already enriched
+    const isSelected = contact.is_recommended || contact.is_enriched;
 
     return (
         <div className="flex items-center justify-between gap-4 py-4 border-b border-border last:border-b-0">
             <div className="flex items-center gap-4 flex-1 min-w-0">
-                {locked ? (
-                    <span title="Already drafted" className="w-9 h-9 flex items-center justify-center text-fg-muted shrink-0">
-                        <FiLock className="w-4 h-4" />
-                    </span>
-                ) : (
-                    <input
-                        type="checkbox"
-                        className="w-4 h-4 accent-primary cursor-pointer"
-                        checked={contact.is_recommended}
-                        onChange={handleSelect}
-                        disabled={toggleRecommend.isPending}
-                    />
-                )}
+                <input
+                    type="checkbox"
+                    className="w-4 h-4 accent-primary cursor-pointer"
+                    checked={isSelected}
+                    onChange={handleSelect}
+                    disabled={toggleRecommend.isPending}
+                />
 
                 {contact.photo_url ? (
                     <img src={contact.photo_url} alt={contact.first_name ?? 'Contact'} className="w-10 h-10 rounded-full bg-bg-purple-50" />
