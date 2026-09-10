@@ -51,35 +51,42 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({ formData, setFormData 
     }, []);
 
     const beginTransition: BeginTransition = async (action, targetStep, label, options) => {
-        // Silent transitions skip the blocking overlay — the caller disables its own buttons
-        const showOverlay = !options?.silent;
-        if (showOverlay) setTransitionLabel(label);
         const targetIdx = getStepIndex(targetStep);
         const startingStatus = formData.status;
+        // Re-run = the action targets a step at/behind the batch's live status
+        // (e.g. re-running Find Contacts while the status is "emails drafted").
+        // Re-runs are confirmed by the action's own response; forward transitions
+        // are confirmed by the batch status (GET).
+        const isReRun = targetIdx <= getStepIndex(getBatchStep(startingStatus));
+        // Forward transitions always show the overlay (their confirmation is the status
+        // poll); re-runs respect the caller's silent preference (buttons disable instead)
+        const showOverlay = !options?.silent || !isReRun;
+        if (showOverlay) setTransitionLabel(label);
         try {
             const result = await action();
 
-            // Response-validated transition: the action's own response confirms (or
-            // fails) the step — no batch polling needed. E.g. drafting returns the
+            // Response validation applies in both modes — e.g. drafting returns the
             // drafts themselves; an empty array means nothing was generated.
-            if (options?.validate) {
-                if (!options.validate(result)) {
-                    toast(options?.validationMessage || `${label} could not be completed`, { icon: <FiInfo /> });
-                    return false;
-                }
+            if (options?.validate && !options.validate(result)) {
+                toast(options?.validationMessage || `${label} could not be completed`, { icon: <FiInfo /> });
+                return false;
+            }
+
+            // RE-RUN: navigate on the action's own response — the GET status is behind
+            // the live one and can't confirm a backward move
+            if (isReRun) {
                 setFormData((prev) => (prev ? { ...prev, status: STEP_STATUS[targetStep] } : prev));
-                // Sync the detail cache too — otherwise the next refetch reverts the optimistic status
+                // Sync the detail cache too — otherwise the next refetch reverts the status
                 queryClient.setQueryData<Batch>(
                     batchKeys.detail(formData.id),
                     (old) => (old ? { ...old, status: STEP_STATUS[targetStep] } : old)
                 );
-                // Land on the live step's view — even when the status didn't change
-                // (e.g. enriching pending accounts while already at the enrich step)
                 applyViewStep(null);
                 return true;
             }
 
-            // Fast path: the action response itself may carry the updated batch status
+            // FORWARD transition — confirmed via the batch status.
+            // Fast path: the action response itself may already carry the updated status
             const resultStatus = (result as { status?: unknown } | null | undefined)?.status;
             if (
                 typeof resultStatus === 'string' &&

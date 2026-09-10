@@ -51,14 +51,13 @@ const BatchDetailPage: React.FC = () => {
     useEffect(() => {
         if (fetchedBatch) {
             setFormData((prev) => {
-                // Don't let a refetch clobber a locally-confirmed forward status with a
-                // stale one (e.g. the server persisting the flip a beat after the
-                // action response confirmed it). Equal or forward statuses apply.
-                if (
-                    prev &&
-                    getStepIndex(getBatchStep(prev.status)) > getStepIndex(getBatchStep(fetchedBatch.status))
-                ) {
-                    return prev;
+                // Status is owned by the UI actions (transitions/Save) — the GET may
+                // lag behind while a re-run is in flight (e.g. you just re-ran Find
+                // Contacts from "emails drafted" and the server still reports the old
+                // status). Merge the fetched fields but keep the locally confirmed
+                // status; only the initial load adopts the fetched status.
+                if (prev && getBatchStep(prev.status) !== getBatchStep(fetchedBatch.status)) {
+                    return { ...fetchedBatch, status: prev.status };
                 }
                 return fetchedBatch;
             });

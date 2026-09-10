@@ -171,15 +171,21 @@ export const ExploreAccountsView: React.FC<Props> = ({ batch, beginTransition, o
         // Send the local Product Intelligence copy. No blocking overlay: the buttons
         // disable until the API responds, then the user is taken to the Enrich & Rank
         // view (which polls processing accounts).
-        await beginTransition(
-            () => enrichMutation.mutateAsync({
-                account_ids: accountIds,
-                product_analysis: batch.product_analysis ?? {},
-            }),
-            'enrich',
-            'Enriching & ranking accounts',
-            { validate: () => true, silent: true }
-        );
+        try {
+            await beginTransition(
+                () => enrichMutation.mutateAsync({
+                    account_ids: accountIds,
+                    product_analysis: batch.product_analysis ?? {},
+                }),
+                'enrich',
+                'Enriching & ranking accounts',
+                { validate: () => true, silent: true }
+            );
+            // console.log("hello");
+        } catch (error) {
+            // console.log("hello");
+            toast.error("an error happened while enriching")
+        }
     };
 
     const handleExportCSV = () => {
