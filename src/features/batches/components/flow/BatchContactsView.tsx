@@ -41,11 +41,10 @@ export const BatchContactsView: React.FC<Props> = ({ batch, beginTransition, onB
         [contacts, ignoredAccountIds]
     );
 
-    // The contacts the next draft run will cover: selected contacts (recommended
-    // or already enriched) — drafted contacts are selectable like any other
+    // The contacts the next draft run will cover: the recommended ones only
     const selectedContactIds = useMemo(
         () => (visibleContacts || [])
-            .filter((c) => c.is_recommended || c.is_enriched)
+            .filter((c) => c.is_recommended)
             .map((c) => c.id),
         [visibleContacts]
     );

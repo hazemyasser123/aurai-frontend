@@ -142,9 +142,9 @@ export const AccountContactsSection: React.FC<AccountContactsSectionProps> = ({ 
         }
     };
 
-    // Two groups per account: selected (recommended or enriched), unselected
-    const selected = contacts.filter(c => c.is_recommended || c.is_enriched);
-    const unselected = contacts.filter(c => !c.is_recommended && !c.is_enriched);
+    // Two groups per account: selected (recommended), unselected
+    const selected = contacts.filter(c => c.is_recommended);
+    const unselected = contacts.filter(c => !c.is_recommended);
 
     return (
         <Card variant="elevated" className="flex flex-col gap-6 mb-6">

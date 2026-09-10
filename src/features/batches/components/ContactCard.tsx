@@ -31,8 +31,6 @@ export const ContactCard: React.FC<ContactCardProps> = ({ contact, accountId, ba
     };
 
     const email = contact.primary_email;
-    // Selected = recommended OR already enriched
-    const isSelected = contact.is_recommended || contact.is_enriched;
 
     return (
         <div className="flex items-center justify-between gap-4 py-4 border-b border-border last:border-b-0">
@@ -40,7 +38,7 @@ export const ContactCard: React.FC<ContactCardProps> = ({ contact, accountId, ba
                 <input
                     type="checkbox"
                     className="w-4 h-4 accent-primary cursor-pointer"
-                    checked={isSelected}
+                    checked={contact.is_recommended}
                     onChange={handleSelect}
                     disabled={toggleRecommend.isPending}
                 />
