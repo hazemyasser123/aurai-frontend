@@ -1,8 +1,8 @@
 import React from 'react';
-import { FiSun, FiMoon, FiMenu } from 'react-icons/fi';
+import { FiMenu } from 'react-icons/fi';
 import { useSelector } from 'react-redux';
 import type { RootState } from '@/shared/redux/store/store';
-import { useTheme } from '@/shared/hooks/useTheme';
+// import { useTheme } from '@/shared/hooks/useTheme';
 
 const getInitials = (username: string): string => {
     if (!username) return '';
@@ -18,7 +18,7 @@ interface TopAppBarProps {
 
 export const TopAppBar: React.FC<TopAppBarProps> = ({ onMenuClick }) => {
     const { user } = useSelector((state: RootState) => state.auth);
-    const { theme, toggleTheme } = useTheme();
+    // const { theme, toggleTheme } = useTheme();
 
     return (
         <header className="h-16 border-b border-border flex items-center justify-between px-4 sm:px-6 bg-bg-page shrink-0 transition-colors duration-150">
@@ -37,7 +37,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({ onMenuClick }) => {
 
             <div className="flex items-center gap-2 sm:gap-4">
                 {/* Dark/Light Mode Toggle */}
-                <div className="flex items-center gap-1 bg-bg-muted rounded-full p-1">
+                {/* <div className="flex items-center gap-1 bg-bg-muted rounded-full p-1">
                     <button
                         onClick={toggleTheme}
                         className={`p-1.5 sm:p-2 rounded-full transition-colors ${theme === 'dark' ? 'bg-bg-card shadow-sm text-primary' : 'text-fg-body hover:text-fg'}`}
@@ -52,7 +52,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = ({ onMenuClick }) => {
                     >
                         <FiSun className="w-4 h-4" />
                     </button>
-                </div>
+                </div> */}
 
                 {/* Profile Initials (Dynamic) */}
                 <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-bg-purple-soft flex items-center justify-center">
