@@ -189,7 +189,7 @@ const BatchDetailPage: React.FC = () => {
                 // re-runs enrichment & ranking for the batch's accounts (ignored ones excluded)
                 await rerankAccounts.mutateAsync({
                     account_ids: (rerankAccountsList || []).map((a) => a.id),
-                    product_analysis: pendingPayload.product_analysis,
+                    product_analysis: pendingPayload.product_analysis ?? {},
                     force_reevaluate: true,
                 });
                 toast.success('Contacts re-ranked successfully');

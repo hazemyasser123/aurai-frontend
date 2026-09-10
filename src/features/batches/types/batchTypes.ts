@@ -121,6 +121,7 @@ export interface AddBatchAccountPayload {
 
 export interface SearchAccountCandidatesPayload {
   query: string;
+  max_results?: number;
   account_source?: AccountSource;
   contact_source?: ContactSource;
 }
@@ -195,7 +196,11 @@ export interface ContactRawSourceMetadata {
     skills?: string[];
     experience?: unknown[];
     education?: unknown[];
-    social?: Array<{ type?: string | null; link?: string | null; rating?: number | null }> | null;
+    social?: Array<{
+      type?: string | null;
+      link?: string | null;
+      rating?: number | null;
+    }> | null;
   } | null;
 }
 
@@ -233,6 +238,8 @@ export interface AddManualContactPayload {
 }
 
 export interface SearchContactCandidatesPayload {
+  batch_id?: string;
+  contact_source?: ContactSource;
   title?: string;
   seniority_level?: string;
   max_results?: number;
@@ -291,33 +298,18 @@ export interface UpdateBatchPayload {
 }
 
 export interface FindAccountsPayload {
+  batch_id?: string;
   id?: string;
-  name?: string;
-  batch_name?: string;
-  base_product_id?: string;
-  product_analysis?: ProductAnalysis;
+  account_source?: AccountSource;
   icp?: Icp;
   max_results?: number;
-  account_source?: AccountSource;
-  contact_source?: ContactSource;
-  cc_emails?: string[];
-  bcc_emails?: string[];
-  human_action_loop_emails?: string[];
-  forward_emails?: string[];
-  enable_auto_followup?: boolean;
-  followup_delay_days?: number;
-  reply_delay_enabled?: boolean;
-  reply_timezone?: string;
-  reply_working_days?: number[];
-  reply_working_hours_start?: string;
-  reply_working_hours_end?: string;
-  reply_base_delay_minutes?: number;
-  reply_delay_buffer_minutes?: number;
 }
 
 export interface FindBatchContactsPayload {
   account_ids?: string[];
-  force?: boolean;
+  contact_source?: ContactSource;
+  icp?: Icp;
+  product_analysis?: ProductAnalysis;
 }
 
 // Outreach / Draft Messages
@@ -351,6 +343,7 @@ export interface OutreachConversation {
 
 export interface DraftOutreachPayload {
   contact_ids: string[];
+  product_analysis?: ProductAnalysis;
 }
 
 export interface UpdateOutreachPayload {
@@ -359,8 +352,7 @@ export interface UpdateOutreachPayload {
 }
 
 export interface SendBulkOutreachPayload {
-  batch_id?: string; // Option 1: send all unsent emails in a batch
-  email_ids?: string[]; // Option 2: send specific emails by ID
+  conversation_ids: string[];
 }
 
 export interface SendBulkOutreachResponse {

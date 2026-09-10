@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { WithNavbar } from '@/shared/components/hoc/WithNavbar';
 import { Button, CollapsibleSection } from '@/shared/components/ui';
@@ -53,6 +53,17 @@ const ContactDetailsPage: React.FC = () => {
     const batchId = searchParams.get('batchId');
     const { data: contact, isLoading, isError } = useContactDetails(contactId || '');
     const enrich = useEnrichContact(contactId || '');
+
+    // Photo chain: top-level photo_url first → raw_source_metadata photo → initial letter.
+    // Each URL that fails to load is recorded so the chain falls through.
+    const [failedPhotoSrc, setFailedPhotoSrc] = useState<string[]>([]);
+    const rawPhotoUrl = contact?.raw_source_metadata?.candidate?.photo?.url || null;
+    const canTry = (url?: string | null) => !!url && !failedPhotoSrc.includes(url);
+    const photoUrl = canTry(contact?.photo_url)
+        ? contact?.photo_url
+        : canTry(rawPhotoUrl)
+            ? rawPhotoUrl
+            : null;
 
     const rawJson = useMemo(() => (contact ? JSON.stringify(contact, null, 2) : ''), [contact]);
     const location = contact?.raw_source_metadata?.candidate?.locations?.[0]?.name || null;
@@ -134,10 +145,12 @@ const ContactDetailsPage: React.FC = () => {
             <div className="flex flex-col gap-6">
                 {/* Basic Info */}
                 <div className="bg-bg-sidebar border border-border rounded-xl p-6 flex flex-col sm:flex-row gap-6">
-                    {contact.photo_url ? (
+                    {photoUrl ? (
                         <img
-                            src={contact.photo_url}
+                            key={photoUrl}
+                            src={photoUrl}
                             alt={fullName}
+                            onError={() => setFailedPhotoSrc((prev) => [...prev, photoUrl])}
                             className="w-24 h-24 rounded-xl object-cover bg-bg-purple-50 shrink-0"
                         />
                     ) : (

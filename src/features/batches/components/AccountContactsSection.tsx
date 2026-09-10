@@ -107,7 +107,18 @@ export const AccountContactsSection: React.FC<AccountContactsSectionProps> = ({ 
         }
         setFieldErrors({});
         try {
-            await addContact.mutateAsync({ batch_id: batchId || '', ...parsed.data });
+            // Optional fields are omitted instead of sent as "" — blank strings would
+            // store junk instead of null server-side
+            const d = parsed.data;
+            await addContact.mutateAsync({
+                batch_id: batchId || '',
+                first_name: d.first_name,
+                last_name: d.last_name,
+                ...(d.title ? { title: d.title } : {}),
+                ...(d.email ? { email: d.email } : {}),
+                ...(d.phone ? { phone: d.phone } : {}),
+                ...(d.linkedin_url ? { linkedin_url: d.linkedin_url } : {}),
+            });
             toast.success("Contact added successfully!");
             handleCloseAddModal();
         } catch (error: unknown) {

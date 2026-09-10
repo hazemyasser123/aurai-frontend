@@ -9,10 +9,11 @@ import { useDraftOutreach } from '@/features/batches/hooks/useDraftOutreach';
 import { AccountContactsSection } from '@/features/batches/components/AccountContactsSection';
 import { STEP_LABELS } from '@/features/batches/utils/batchFlow';
 import type { BeginTransition } from '@/features/batches/utils/batchFlow';
+import type { Batch } from '@/features/batches/types/batchTypes';
 import toast from 'react-hot-toast';
 
 interface Props {
-    batchId: string;
+    batch: Batch;
     /** Runs an action and polls the batch until the target step is confirmed (loading state handled by the tab) */
     beginTransition: BeginTransition;
     /** Go back to the previous flow step (view only — does not change batch status) */
@@ -21,13 +22,15 @@ interface Props {
     onGoForward?: () => void;
 }
 
-export const BatchContactsView: React.FC<Props> = ({ batchId, beginTransition, onBack, onGoForward }) => {
+export const BatchContactsView: React.FC<Props> = ({ batch, beginTransition, onBack, onGoForward }) => {
+    const batchId = batch.id;
     const navigate = useNavigate();
     const { data: accounts, isLoading: isLoadingAccounts } = useBatchAccounts(batchId);
     const { data: contacts, isLoading: isLoadingContacts } = useBatchContacts(batchId);
     const { data: ignoredAccountIds } = useIgnoredAccountIds(batchId);
     const { data: outreach } = useBatchOutreach(batchId);
-    const draftOutreach = useDraftOutreach(batchId);
+    // The local Product Intelligence copy — sent with the draft request
+    const draftOutreach = useDraftOutreach(batchId, batch.product_analysis);
 
     // View Details opens the full contact details page (GET /contacts/{id})
     const handleViewDetails = (contactId: string) => {

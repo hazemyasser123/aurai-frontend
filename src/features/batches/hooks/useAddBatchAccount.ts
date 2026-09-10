@@ -11,13 +11,12 @@ export const useAddBatchAccount = (batchId: string) => {
     mutationFn: (payload: AddBatchAccountPayload) =>
       batchApi.addBatchAccount(batchId, payload),
     onSuccess: (newAccounts) => {
-      // Append only genuinely-new accounts, then reconcile with the server so the
-      // list in the view updates instantly (no reload needed)
+      // Append only genuinely-new accounts — the add response already contains
+      // them, so no GET /batches/{id}/accounts refetch is needed
       queryClient.setQueryData<Account[]>(
         batchKeys.accounts(batchId),
         (oldData) => [...(oldData || []), ...filterNewAccounts(newAccounts, oldData)]
       );
-      queryClient.invalidateQueries({ queryKey: batchKeys.accounts(batchId) });
     },
   });
 };

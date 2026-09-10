@@ -2,14 +2,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, Button } from '@/shared/components/ui';
-import { FiSearch } from 'react-icons/fi';
+import { FiSearch, FiInfo } from 'react-icons/fi';
 import bookmarkIcon from '@/assets/bookmark.svg';
 import type { Batch } from '@/features/batches/types/batchTypes';
 import { useFindAccounts } from '@/features/batches/hooks/useFindAccounts';
 import { batchApi } from '@/shared/queries/batches/batchApi';
 import { batchKeys } from '@/shared/queries/batches/batchQueries';
 import { getBatchStep, getStepIndex, STEP_ORDER } from '@/features/batches/utils/batchFlow';
-import { buildFullBatchPayload } from '@/features/batches/utils/batchPayload';
 import type { BatchFlowStep, BeginTransition } from '@/features/batches/utils/batchFlow';
 import { STEP_STATUS } from '@/features/batches/utils/batchFlow';
 import { ExploreAccountsView } from '@/features/batches/components/flow/ExploreAccountsView';
@@ -22,7 +21,7 @@ import { getErrorMessage } from '@/shared/utils/errorHandler';
 
 // Status-transition polling: how often to re-check the batch status, and how long to wait
 // before declaring the step failed and returning the user to the previous state.
-const TRANSITION_POLL_MS = 2000;
+const TRANSITION_POLL_MS = 5000;
 const TRANSITION_TIMEOUT_MS = 180000;
 
 // Module-scope time helpers (React purity: no impure Date.now calls in component scope)
@@ -65,7 +64,7 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({ formData, setFormData 
             // drafts themselves; an empty array means nothing was generated.
             if (options?.validate) {
                 if (!options.validate(result)) {
-                    toast(options?.validationMessage || `${label} could not be completed`, { icon: 'ℹ️' });
+                    toast(options?.validationMessage || `${label} could not be completed`, { icon: <FiInfo /> });
                     return false;
                 }
                 setFormData((prev) => (prev ? { ...prev, status: STEP_STATUS[targetStep] } : prev));
@@ -114,8 +113,12 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({ formData, setFormData 
                 }
                 await new Promise((resolve) => setTimeout(resolve, TRANSITION_POLL_MS));
             }
-            // Timed out — the step failed; the batch stays on its previous status
-            toast.error(`${label} failed — please try again.`);
+            // Timed out — the step didn't confirm; the batch stays on its previous status.
+            // The operation may still complete server-side — tell the user to refresh.
+            toast(
+                `${label} is taking longer than expected. It may still be running in the background — please refresh the page to see the latest status.`,
+                { icon: <FiInfo />, duration: 8000 }
+            );
             return false;
         } catch (error) {
             if (!cancelledRef.current) {
@@ -174,11 +177,12 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({ formData, setFormData 
     };
 
     const handleExplore = async () => {
-        // Send the full batch — same shape as the Save button, so nothing is dropped.
-        // Product Intelligence and ICP come from the product's own endpoints when available.
+        // Documented body only: batch_id, id, account_source, icp, max_results
         const payload = {
+            batch_id: formData.id,
             id: formData.id,
-            ...buildFullBatchPayload(formData),
+            account_source: formData.account_source || undefined,
+            icp: formData.icp,
             max_results: formData.max_results || 10,
         };
         const confirmed = await beginTransition(
@@ -246,29 +250,27 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({ formData, setFormData 
                     batch={formData}
                     beginTransition={beginTransition}
                     onBack={canGoBack ? handleBack : undefined}
-                    onGoForward={isViewingEarlierStep ? handleGoForward : undefined}
                 />
             );
         case 'enrich':
             return (
                 <EnrichAndRankView
-                    batchId={formData.id}
+                    batch={formData}
                     beginTransition={beginTransition}
                     onBack={canGoBack ? handleBack : undefined}
-                    onGoForward={isViewingEarlierStep ? handleGoForward : undefined}
                 />
             );
         case 'contacts':
             return (
                 <BatchContactsView
-                    batchId={formData.id}
+                    batch={formData}
                     beginTransition={beginTransition}
                     onBack={canGoBack ? handleBack : undefined}
                     onGoForward={isViewingEarlierStep ? handleGoForward : undefined}
                 />
             );
         case 'draft':
-            return <DraftMessagesView batchId={formData.id} beginTransition={beginTransition} onBack={canGoBack ? handleBack : undefined} onGoForward={isViewingEarlierStep ? handleGoForward : undefined} />;
+            return <DraftMessagesView batch={formData} beginTransition={beginTransition} onBack={canGoBack ? handleBack : undefined} onGoForward={isViewingEarlierStep ? handleGoForward : undefined} />;
         case 'outreached':
             return (
                 <ContactsFetchedView
@@ -277,7 +279,8 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({ formData, setFormData 
                 />
             );
         default:
-            return <DraftMessagesView batchId={formData.id} beginTransition={beginTransition} onBack={canGoBack ? handleBack : undefined} onGoForward={isViewingEarlierStep ? handleGoForward : undefined} />;
+            return <DraftMessagesView batch={formData} beginTransition={beginTransition} onBack={canGoBack ? handleBack : undefined} onGoForward={isViewingEarlierStep ? handleGoForward : undefined} />;
     }
 };
+
 

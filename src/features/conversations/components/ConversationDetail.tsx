@@ -216,7 +216,8 @@ export const ConversationDetail: React.FC<Props> = ({ conversation: c, onBack })
           /* DRAFTED — the thread IS the draft: editable subject/body with Save/Send,
              same actions as the Draft Messages screen. Replaces the read-only email card. */
           <div className="flex flex-col">
-            <DraftEditor conversation={draftConversation} onUpdated={handleDraftUpdated} />
+            {/* The contact is already shown in the detail header — no repeated contact block */}
+            <DraftEditor conversation={draftConversation} onUpdated={handleDraftUpdated} hideContactHeader />
           </div>
         ) : (
           <>

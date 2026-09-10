@@ -1,37 +1,58 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, InputField, Modal } from '@/shared/components/ui';
-import { FiArrowRight, FiArrowLeft, FiSearch, FiX, FiTrash2 } from 'react-icons/fi';
+import { FiArrowRight, FiArrowLeft, FiSearch, FiX, FiTrash2, FiInfo } from 'react-icons/fi';
 import { RiSearchAi3Line } from "react-icons/ri";
 import { useBatchAccounts } from '@/features/batches/hooks/useBatchAccounts';
 import { useDeleteBatchAccount } from '@/features/batches/hooks/useDeleteBatchAccount';
 import { useFindBatchContacts } from '@/features/batches/hooks/useFindBatchContacts';
 import { AccountCardSkeleton } from '@/features/batches/components/AccountCardSkeleton';
 import { AccountStatusBadge } from '@/features/batches/components/AccountStatusBadge';
-import { STEP_LABELS } from '@/features/batches/utils/batchFlow';
 import type { BeginTransition } from '@/features/batches/utils/batchFlow';
+import type { Batch } from '@/features/batches/types/batchTypes';
 import type { Account } from '@/features/batches/types/batchTypes';
 import toast from 'react-hot-toast';
 import { getErrorMessage } from '@/shared/utils/errorHandler';
 
+// Polling cadence + cap shared with the other flow polls
+const POLLING_TIMEOUT_MS = 180000;
+const pollNow = () => Date.now();
+
 interface Props {
-    batchId: string;
+    batch: Batch;
     /** Runs an action and polls the batch until the target step is confirmed (loading state handled by the tab) */
     beginTransition: BeginTransition;
     /** Go back to the previous flow step (view only — does not change batch status) */
     onBack?: () => void;
-    /** Present when viewing an earlier step than the batch's current step — advances the view forward instead of re-running the action */
-    onGoForward?: () => void;
 }
 
-export const EnrichAndRankView: React.FC<Props> = ({ batchId, beginTransition, onBack, onGoForward }) => {
+export const EnrichAndRankView: React.FC<Props> = ({ batch, beginTransition, onBack }) => {
+    const batchId = batch.id;
     const navigate = useNavigate();
 
-    // Keep polling while any account is still processing the enrichment
+    // Keep polling while any account is still processing the enrichment —
+    // every 5s, capped at 3 minutes, then a graceful "refresh the page" message
+    const processingDeadlineRef = useRef<number | null>(null);
     const { data: accounts, isLoading } = useBatchAccounts(batchId, {
         refetchInterval: (query) => {
             const list = query.state.data as Account[] | undefined;
-            return list?.some((a) => (a.status || '').toLowerCase() === 'processing') ? 2000 : false;
+            const stillProcessing = list?.some((a) => (a.status || '').toLowerCase() === 'processing');
+            if (!stillProcessing) {
+                processingDeadlineRef.current = null;
+                return false;
+            }
+            const nowMs = pollNow();
+            if (processingDeadlineRef.current === null) {
+                processingDeadlineRef.current = nowMs + POLLING_TIMEOUT_MS;
+            } else if (nowMs > processingDeadlineRef.current) {
+                processingDeadlineRef.current = null;
+                toast(
+                    'Enrichment is taking longer than usual. It may still be running in the background — please refresh the page to see the latest status.',
+                    { icon: <FiInfo />, duration: 8000 }
+                );
+                return false;
+            }
+            return 5000;
         },
     });
     const deleteAccount = useDeleteBatchAccount(batchId);
@@ -72,10 +93,16 @@ export const EnrichAndRankView: React.FC<Props> = ({ batchId, beginTransition, o
             toast.error("No accounts to find contacts for");
             return;
         }
-        // Only enriched (non-null-status) accounts are sent — pending ones are ignored
+        // Only enriched (non-null-status) accounts are sent — pending ones are ignored.
+        // Sends the batch's contact source + local ICP/Product Intelligence copies.
         const accountIds = visibleAccounts.map((a) => a.id);
         await beginTransition(
-            () => findContacts.mutateAsync({ account_ids: accountIds }),
+            () => findContacts.mutateAsync({
+                account_ids: accountIds,
+                contact_source: batch.contact_source || undefined,
+                icp: batch.icp,
+                product_analysis: batch.product_analysis,
+            }),
             'contacts',
             'Finding contacts'
         );
@@ -98,28 +125,19 @@ export const EnrichAndRankView: React.FC<Props> = ({ batchId, beginTransition, o
                         </p>
                     </div>
                 </div>
-                {onGoForward ? (
-                    <Button
-                        variant="outline"
-                        className="w-full sm:w-auto"
-                        onClick={onGoForward}
-                    >
-                        Go to {STEP_LABELS.contacts}
-                        <FiArrowRight className="w-4 h-4" />
-                    </Button>
-                ) : (
-                    <Button
-                        variant="gradient"
-                        className="w-full sm:w-auto"
-                        onClick={handleFindContacts}
-                        isLoading={findContacts.isPending}
-                        disabled={findContacts.isPending || isProcessing}
-                    >
-                        <RiSearchAi3Line className="w-4 h-4" />
-                        Find Contacts
-                        <FiArrowRight className="w-4 h-4" />
-                    </Button>
-                )}
+                {/* Always the real Find Contacts CTA — it runs the contacts pipeline
+                    for all enriched account ids */}
+                <Button
+                    variant="gradient"
+                    className="w-full sm:w-auto"
+                    onClick={handleFindContacts}
+                    isLoading={findContacts.isPending}
+                    disabled={findContacts.isPending || isProcessing}
+                >
+                    <RiSearchAi3Line className="w-4 h-4" />
+                    Find Contacts
+                    <FiArrowRight className="w-4 h-4" />
+                </Button>
             </div>
 
             {/* Controllers */}
@@ -256,3 +274,4 @@ export const EnrichAndRankView: React.FC<Props> = ({ batchId, beginTransition, o
         </div>
     );
 };
+

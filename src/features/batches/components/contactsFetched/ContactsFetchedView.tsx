@@ -12,12 +12,10 @@ import { RemainingAccountCard } from './RemainingAccountCard';
 import { FindMoreAccountsModal } from '@/features/batches/components/flow/FindMoreAccountsModal';
 import type { Batch, Contact, OutreachConversation } from '@/features/batches/types/batchTypes';
 import type { BeginTransition } from '@/features/batches/utils/batchFlow';
-import { buildFullBatchPayload } from '@/features/batches/utils/batchPayload';
 import { Modal, Button } from '@/shared/components/ui';
-import { FiPlus, FiSearch } from 'react-icons/fi';
+import { FiPlus, FiSearch, FiInfo } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { getErrorMessage } from '@/shared/utils/errorHandler';
-import { CiCircleInfo } from "react-icons/ci";
 
 interface Props {
   batch: Batch;
@@ -33,7 +31,7 @@ export const ContactsFetchedView: React.FC<Props> = ({ batch, beginTransition })
   const { data: outreach, isLoading: loadingOutreach, isError, error } = useBatchOutreach(batchId);
   const [selected, setSelected] = useState<OutreachConversation | null>(null);
   const { data: thread, isLoading: loadingThread } = useOutreachThread(selected?.id ?? null);
-  const draftOutreach = useDraftOutreach(batchId);
+  const draftOutreach = useDraftOutreach(batchId, batch.product_analysis);
 
   // Grow outreach — the batch stays expandable even after being outreached
   const fetchMore = useFetchMoreAccounts(batchId);
@@ -42,15 +40,16 @@ export const ContactsFetchedView: React.FC<Props> = ({ batch, beginTransition })
 
   const handleFindMoreAccounts = async (count: number) => {
     try {
-      // Send the full batch — Batch Overview + the local Product Intelligence + ICP edits
+      // Documented body: count_to_add, account_source, icp
       const fetched = await fetchMore.mutateAsync({
-        ...buildFullBatchPayload(batch),
         count_to_add: count,
+        account_source: batch.account_source || undefined,
+        icp: batch.icp,
       });
       // Only genuinely-new accounts count — duplicates are skipped
       const fresh = filterNewAccounts(fetched, accounts);
       if (fresh.length === 0) {
-        toast('No new accounts found for this ICP criteria', { icon: <CiCircleInfo /> });
+        toast('No new accounts found for this ICP criteria', { icon: <FiInfo /> });
       } else {
         toast.success(`${fresh.length} new account(s) found!`);
       }
@@ -68,7 +67,12 @@ export const ContactsFetchedView: React.FC<Props> = ({ batch, beginTransition })
     // Runs the pipeline again for the visible accounts — backend moves the
     // batch back to 'contacts fetched' so the new contacts enter the flow
     await beginTransition(
-      () => findContacts.mutateAsync({ account_ids: accounts.map((a) => a.id) }),
+      () => findContacts.mutateAsync({
+        account_ids: accounts.map((a) => a.id),
+        contact_source: batch.contact_source || undefined,
+        icp: batch.icp,
+        product_analysis: batch.product_analysis,
+      }),
       'contacts',
       'Finding contacts'
     );
@@ -473,3 +477,6 @@ export const ContactsFetchedView: React.FC<Props> = ({ batch, beginTransition })
     </div>
   );
 };
+
+
+

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Button } from '@/shared/components/ui';
-import { FiArrowRight, FiArrowLeft } from 'react-icons/fi';
+import { FiArrowRight, FiArrowLeft, FiInfo } from 'react-icons/fi';
 import { useBatchAccounts, useIgnoredAccountIds } from '@/features/batches/hooks/useBatchAccounts';
 import { useBatchContacts } from '@/features/batches/hooks/useBatchContacts';
 import { useBatchOutreach } from '@/features/batches/hooks/useBatchOutreach';
@@ -9,12 +9,13 @@ import { useSendBulkOutreach } from '@/features/batches/hooks/useSendBulkOutreac
 import { AccountDraftSection } from '@/features/batches/components/draft/AccountDraftSection';
 import { STEP_LABELS } from '@/features/batches/utils/batchFlow';
 import type { BeginTransition } from '@/features/batches/utils/batchFlow';
+import type { Batch } from '@/features/batches/types/batchTypes';
 import type { OutreachConversation } from '@/features/batches/types/batchTypes';
 import toast from 'react-hot-toast';
 import { getErrorMessage } from '@/shared/utils/errorHandler';
 
 interface Props {
-    batchId: string;
+    batch: Batch;
     /** Runs an action and polls the batch until the target step is confirmed (loading state handled by the tab) */
     beginTransition: BeginTransition;
     /** Go back to the previous flow step (view only — does not change batch status) */
@@ -23,13 +24,14 @@ interface Props {
     onGoForward?: () => void;
 }
 
-export const DraftMessagesView: React.FC<Props> = ({ batchId, beginTransition, onBack, onGoForward }) => {
+export const DraftMessagesView: React.FC<Props> = ({ batch, beginTransition, onBack, onGoForward }) => {
+  const batchId = batch.id;
   const { data: accounts, isLoading: isLoadingAccounts } = useBatchAccounts(batchId);
   const { data: rawContacts, isLoading: isLoadingContacts } = useBatchContacts(batchId);
   const { data: ignoredAccountIds } = useIgnoredAccountIds(batchId);
   const { data: outreach, isLoading: isLoadingOutreach } = useBatchOutreach(batchId);
 
-  const draftMutation = useDraftOutreach(batchId);
+  const draftMutation = useDraftOutreach(batchId, batch.product_analysis);
   const sendBulk = useSendBulkOutreach(batchId);
 
   const normalizeOutreach = (data: unknown): OutreachConversation[] => {
@@ -56,8 +58,14 @@ export const DraftMessagesView: React.FC<Props> = ({ batchId, beginTransition, o
     setLocalOutreach(outreach !== undefined ? normalizeOutreach(outreach) : []);
   }
 
-  // Ensure localOutreach is always an array
-  const safeOutreach = useMemo(() => (Array.isArray(localOutreach) ? localOutreach : []), [localOutreach]);
+  // Ensure localOutreach is always an array. Conversations tied to Ignored accounts are
+  // excluded everywhere — display AND the Send All count (they're never sent).
+  const safeOutreach = useMemo(
+    () => (Array.isArray(localOutreach) ? localOutreach : []).filter(
+      (c) => !ignoredAccountIds?.includes(c.account_id)
+    ),
+    [localOutreach, ignoredAccountIds]
+  );
 
   // Contacts tied to Ignored accounts are excluded everywhere — display and drafts
   const contacts = useMemo(
@@ -92,9 +100,9 @@ export const DraftMessagesView: React.FC<Props> = ({ batchId, beginTransition, o
   const totalContacts = safeOutreach.length > 0 ? safeOutreach.length : (contacts?.length ?? 0);
   const isLoading = isLoadingAccounts || isLoadingContacts || isLoadingOutreach;
 
-  // Draft only the selected (recommended) contacts — never everything
+  // All visible contacts are selected by default for "Generate Drafts"
   const selectedContactIds = useMemo(
-    () => (contacts ?? []).filter((c) => c.is_recommended).map((c) => c.id),
+    () => (contacts ?? []).map((c) => c.id),
     [contacts]
   );
 
@@ -107,7 +115,7 @@ export const DraftMessagesView: React.FC<Props> = ({ batchId, beginTransition, o
       const drafts = await draftMutation.mutateAsync(selectedContactIds);
       const normalized = normalizeOutreach(drafts);
       if (normalized.length === 0) {
-        toast('Unable to generate message drafts', { icon: 'ℹ️' });
+        toast('Unable to generate message drafts', { icon: <FiInfo /> });
         return;
       }
       setLocalOutreach(normalized);
@@ -120,8 +128,9 @@ export const DraftMessagesView: React.FC<Props> = ({ batchId, beginTransition, o
   const handleSendAll = async () => {
     if (!batchId) return;
     // The tab polls until the backend confirms the outreached status
+    // POST /outreach/conversations/send-bulk — send the drafted conversations
     await beginTransition(
-      () => sendBulk.mutateAsync({ batch_id: batchId }),
+      () => sendBulk.mutateAsync({ conversation_ids: safeOutreach.map((c) => c.id) }),
       'outreached',
       'Sending outreach'
     );
@@ -203,3 +212,4 @@ export const DraftMessagesView: React.FC<Props> = ({ batchId, beginTransition, o
     </div>
   );
 };
+

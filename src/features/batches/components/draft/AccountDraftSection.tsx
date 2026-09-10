@@ -47,8 +47,8 @@ export const AccountDraftSection: React.FC<Props> = ({ account, conversations, d
       return;
     }
     try {
-      // POST /outreach/conversations/send-bulk — Option 2: send specific emails by ID
-      const res = await sendBulk.mutateAsync({ email_ids: Array.from(checkedIds) });
+      // POST /outreach/conversations/send-bulk — send the selected drafted conversations
+      const res = await sendBulk.mutateAsync({ conversation_ids: Array.from(checkedIds) });
       toast.success(`Sent ${res.sent_count} message(s)`);
       setCheckedIds(new Set());
     } catch (e) {
@@ -60,8 +60,8 @@ export const AccountDraftSection: React.FC<Props> = ({ account, conversations, d
     const ids = conversations.map(c => c.id);
     if (ids.length === 0) return;
     try {
-      // Option 2: only this account's drafts
-      const res = await sendBulk.mutateAsync({ email_ids: ids });
+      // Only this account's drafted conversations
+      const res = await sendBulk.mutateAsync({ conversation_ids: ids });
       toast.success(`Sent ${res.sent_count} message(s)`);
       setCheckedIds(new Set());
     } catch (e) {

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { FiInfo } from 'react-icons/fi';
 import { useParams, useNavigate } from 'react-router-dom';
 import { WithNavbar } from '@/shared/components/hoc/WithNavbar';
 import { WorkspaceHeader } from '@/features/products/components/workspace/WorkspaceHeader';
@@ -57,15 +58,29 @@ const ProductWorkspacePage: React.FC = () => {
   };
   const isPolling = (is404(analysisError) || is404(icpError)) && !loadingAnalysis && !loadingIcp;
 
-  // Poll every 4s after POST 202 while GETs return 404
+  // Poll every 5s after POST 202 while GETs return 404 — capped at 3 minutes,
+  // then show a graceful "refresh the page" message and stop
+  const [pollingTimedOut, setPollingTimedOut] = useState(false);
+  const pollStartRef = useRef<number | null>(null);
+
   useEffect(() => {
-    if (!isPolling || !productId) return;
+    if (!isPolling || pollingTimedOut || !productId) return;
+    if (pollStartRef.current === null) pollStartRef.current = Date.now();
     const id = setInterval(() => {
+      if (Date.now() - (pollStartRef.current ?? 0) > 180000) {
+        clearInterval(id);
+        setPollingTimedOut(true);
+        toast(
+          'The analysis is taking longer than usual. It may still be running in the background — please refresh the page to see the latest status.',
+          { icon: <FiInfo />, duration: 8000 }
+        );
+        return;
+      }
       refetchAnalysis();
       refetchIcp();
-    }, 4000);
+    }, 5000);
     return () => clearInterval(id);
-  }, [isPolling, productId, refetchAnalysis, refetchIcp]);
+  }, [isPolling, pollingTimedOut, productId, refetchAnalysis, refetchIcp]);
 
   // Rotate encouraging messages
   useEffect(() => {
@@ -159,3 +174,4 @@ const ProductWorkspacePage: React.FC = () => {
 };
 
 export default WithNavbar(ProductWorkspacePage);
+

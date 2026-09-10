@@ -9,9 +9,11 @@ import { getErrorMessage } from '@/shared/utils/errorHandler';
 interface Props {
   conversation: OutreachConversation;
   onUpdated?: (c: OutreachConversation) => void;
+  /** Hide the contact header — used when the parent already shows it (e.g. ConversationDetail) */
+  hideContactHeader?: boolean;
 }
 
-export const DraftEditor: React.FC<Props> = ({ conversation, onUpdated }) => {
+export const DraftEditor: React.FC<Props> = ({ conversation, onUpdated, hideContactHeader = false }) => {
   const [subject, setSubject] = useState(conversation.subject || '');
   const [body, setBody] = useState(conversation.body || '');
   const [isEditing, setIsEditing] = useState(false);
@@ -63,20 +65,22 @@ export const DraftEditor: React.FC<Props> = ({ conversation, onUpdated }) => {
 
   return (
     <div className="flex flex-col gap-4 w-full bg-bg-card rounded-lg p-4">
-      {/* Contact header inside draft */}
-      <div className="flex items-center gap-4 p-2">
-        {conversation.photo_url ? (
-          <img src={conversation.photo_url} alt={conversation.first_name} className="w-10 h-10 rounded-full object-cover bg-bg-purple-50" />
-        ) : (
-          <div className="w-10 h-10 rounded-full bg-bg-purple-50 flex items-center justify-center font-semibold text-primary text-sm">
-            {(conversation.first_name?.charAt(0) ?? '?').toUpperCase()}
+      {/* Contact header inside draft — skipped when the parent already shows it */}
+      {!hideContactHeader && (
+        <div className="flex items-center gap-4 p-2">
+          {conversation.photo_url ? (
+            <img src={conversation.photo_url} alt={conversation.first_name} className="w-10 h-10 rounded-full object-cover bg-bg-purple-50" />
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-bg-purple-50 flex items-center justify-center font-semibold text-primary text-sm">
+              {(conversation.first_name?.charAt(0) ?? '?').toUpperCase()}
+            </div>
+          )}
+          <div className="flex flex-col">
+            <span className="font-sans font-medium text-sm text-fg">{conversation.first_name} {conversation.last_name}</span>
+            <span className="font-sans font-normal text-xs text-fg-medium">{conversation.title || '—'}</span>
           </div>
-        )}
-        <div className="flex flex-col">
-          <span className="font-sans font-medium text-sm text-fg">{conversation.first_name} {conversation.last_name}</span>
-          <span className="font-sans font-normal text-xs text-fg-medium">{conversation.title || '—'}</span>
         </div>
-      </div>
+      )}
 
       <div className="flex flex-col gap-2">
         <label className="font-sans font-semibold text-xs text-fg-strong">To</label>

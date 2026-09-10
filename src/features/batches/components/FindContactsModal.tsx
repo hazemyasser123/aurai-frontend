@@ -4,6 +4,7 @@ import { Modal, InputField, Button } from '@/shared/components/ui';
 import { useSearchContactCandidates } from '@/features/batches/hooks/useSearchContactCandidates';
 import { useAddContactCandidates } from '@/features/batches/hooks/useAddContactCandidates';
 import { useSeniorityLevels } from '@/features/batches/hooks/useSeniorityLevels';
+import { useBatch } from '@/features/batches/hooks/useBatch';
 import type { ContactCandidate } from '@/features/batches/types/batchTypes';
 import toast from 'react-hot-toast';
 import { getErrorMessage } from '@/shared/utils/errorHandler';
@@ -33,6 +34,8 @@ export const FindContactsModal: React.FC<FindContactsModalProps> = ({
 
     const searchMutation = useSearchContactCandidates(accountId);
     const addMutation = useAddContactCandidates(accountId, batchId);
+    // The batch's contact source — sent with the candidate search (cached, no extra GET)
+    const { data: searchBatch } = useBatch(batchId || '');
 
     // Seniority levels — fetched from /batches/seniority-levels, searchable inside dropdown
     const { data: seniorityLevelsData } = useSeniorityLevels();
@@ -115,6 +118,8 @@ export const FindContactsModal: React.FC<FindContactsModalProps> = ({
         }
         try {
             const result = await searchMutation.mutateAsync({
+                batch_id: batchId || undefined,
+                contact_source: searchBatch?.contact_source || undefined,
                 title: title.trim() || undefined,
                 seniority_level: seniority.trim() || undefined,
                 max_results: 10,
@@ -131,7 +136,7 @@ export const FindContactsModal: React.FC<FindContactsModalProps> = ({
             setSelected(new Set());
             setHasSearched(true);
             if (normalized.length === 0) {
-                toast('No candidates found for the given criteria.', { icon: '🔍' });
+                toast('No candidates found for the given criteria.', { icon: <FiSearch /> });
             }
         } catch (error) {
             toast.error(getErrorMessage(error));
@@ -453,3 +458,4 @@ export const FindContactsModal: React.FC<FindContactsModalProps> = ({
         </Modal>
     );
 };
+
