@@ -240,10 +240,16 @@ const BatchDetailPage: React.FC = () => {
 
     // Keep the URL in sync with the active tab, so back-navigation (e.g. from
     // account/contact details) and reloads land on the same tab — not Batch Overview.
+    // The accounts flow position (?step=) is preserved across tab switches, so leaving
+    // the accounts tab and coming back restores exactly where the user left off
+    // (e.g. the Enrich & Rank view while the status is "emails drafted"), not the
+    // live-status view.
     const handleTabChange = (key: TabKey) => {
         setActiveTab(key);
         if (batchId) {
-            navigate(`/batches/${batchId}?tab=${key}`, { replace: true });
+            const next = new URLSearchParams(searchParams);
+            next.set('tab', key);
+            navigate(`/batches/${batchId}?${next.toString()}`, { replace: true });
         }
     };
 

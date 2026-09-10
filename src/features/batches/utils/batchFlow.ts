@@ -43,12 +43,11 @@ export const STEP_STATUS: Record<BatchFlowStep, string> = {
     outreached: 'outriched',
 };
 
-/** A status-transition callback — runs an action, then confirms the new step either
- *  from the action's response (when `validate` is provided) or by polling the batch
- *  detail until its status reaches the target step. Fails → previous state + toast. */
+/** Options for a flow transition — the action's own HTTP response decides the move */
 export interface TransitionOptions {
-    /** Validate the action's response. When provided, the response itself confirms the
-     *  step (no batch polling). Returning false fails the transition immediately. */
+    /** Validate the action's response. Returning false fails the transition immediately
+     *  (info toast, stay on the current view). E.g. drafting returns the drafts
+     *  themselves; an empty array means nothing was generated. */
     validate?: (result: unknown) => boolean;
     /** Message shown as an info toast when validation fails */
     validationMessage?: string;

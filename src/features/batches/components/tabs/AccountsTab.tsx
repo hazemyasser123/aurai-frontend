@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, Button } from '@/shared/components/ui';
@@ -6,7 +6,6 @@ import { FiSearch, FiInfo } from 'react-icons/fi';
 import bookmarkIcon from '@/assets/bookmark.svg';
 import type { Batch } from '@/features/batches/types/batchTypes';
 import { useFindAccounts } from '@/features/batches/hooks/useFindAccounts';
-import { batchApi } from '@/shared/queries/batches/batchApi';
 import { batchKeys } from '@/shared/queries/batches/batchQueries';
 import { getBatchStep, getStepIndex, STEP_ORDER } from '@/features/batches/utils/batchFlow';
 import type { BatchFlowStep, BeginTransition } from '@/features/batches/utils/batchFlow';
@@ -19,15 +18,6 @@ import { ContactsFetchedView } from '@/features/batches/components/contactsFetch
 import toast from 'react-hot-toast';
 import { getErrorMessage } from '@/shared/utils/errorHandler';
 
-// Status-transition polling: how often to re-check the batch status, and how long to wait
-// before declaring the step failed and returning the user to the previous state.
-const TRANSITION_POLL_MS = 5000;
-const TRANSITION_TIMEOUT_MS = 180000;
-
-// Module-scope time helpers (React purity: no impure Date.now calls in component scope)
-const transitionDeadline = () => Date.now() + TRANSITION_TIMEOUT_MS;
-const now = () => Date.now();
-
 interface AccountsTabProps {
     formData: Batch;
     setFormData: React.Dispatch<React.SetStateAction<Batch | null>>;
@@ -39,98 +29,37 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({ formData, setFormData 
     const findAccounts = useFindAccounts();
     const queryClient = useQueryClient();
 
-    // Status-transition state: while a forward action is pending we either trust the
-    // action's response or poll until the backend confirms the new status, showing a
-    // blocking loading state meanwhile. Polling stops as soon as the user leaves the tab.
+    // Blocking loading state while a flow action's request is in flight
     const [transitionLabel, setTransitionLabel] = useState<string | null>(null);
-    const cancelledRef = useRef(false);
-
-    // Stop any in-flight polling when the tab (or the whole page) unmounts
-    useEffect(() => () => {
-        cancelledRef.current = true;
-    }, []);
 
     const beginTransition: BeginTransition = async (action, targetStep, label, options) => {
-        const targetIdx = getStepIndex(targetStep);
-        const startingStatus = formData.status;
-        // Re-run = the action targets a step at/behind the batch's live status
-        // (e.g. re-running Find Contacts while the status is "emails drafted").
-        // Re-runs are confirmed by the action's own response; forward transitions
-        // are confirmed by the batch status (GET).
-        const isReRun = targetIdx <= getStepIndex(getBatchStep(startingStatus));
-        // Forward transitions always show the overlay (their confirmation is the status
-        // poll); re-runs respect the caller's silent preference (buttons disable instead)
-        const showOverlay = !options?.silent || !isReRun;
+        // Fully response-driven: the action's own HTTP response decides the move.
+        // Success (2xx) → apply the target step and land on its view;
+        // failure → stay on the current view + error toast.
+        const showOverlay = !options?.silent;
         if (showOverlay) setTransitionLabel(label);
         try {
             const result = await action();
 
-            // Response validation applies in both modes — e.g. drafting returns the
-            // drafts themselves; an empty array means nothing was generated.
+            // Optional response validation — e.g. drafting returns the drafts
+            // themselves; an empty array means nothing was generated.
             if (options?.validate && !options.validate(result)) {
                 toast(options?.validationMessage || `${label} could not be completed`, { icon: <FiInfo /> });
                 return false;
             }
 
-            // RE-RUN: navigate on the action's own response — the GET status is behind
-            // the live one and can't confirm a backward move
-            if (isReRun) {
-                setFormData((prev) => (prev ? { ...prev, status: STEP_STATUS[targetStep] } : prev));
-                // Sync the detail cache too — otherwise the next refetch reverts the status
-                queryClient.setQueryData<Batch>(
-                    batchKeys.detail(formData.id),
-                    (old) => (old ? { ...old, status: STEP_STATUS[targetStep] } : old)
-                );
-                applyViewStep(null);
-                return true;
-            }
-
-            // FORWARD transition — confirmed via the batch status.
-            // Fast path: the action response itself may already carry the updated status
-            const resultStatus = (result as { status?: unknown } | null | undefined)?.status;
-            if (
-                typeof resultStatus === 'string' &&
-                resultStatus !== startingStatus &&
-                getStepIndex(getBatchStep(resultStatus)) >= targetIdx
-            ) {
-                setFormData((prev) => (prev ? { ...prev, status: resultStatus } : prev));
-                // Sync the detail cache too — otherwise the next refetch reverts the optimistic status
-                queryClient.setQueryData<Batch>(
-                    batchKeys.detail(formData.id),
-                    (old) => (old ? { ...old, status: resultStatus } : old)
-                );
-                applyViewStep(null);
-                return true;
-            }
-
-            // Poll the batch detail until the backend confirms the target step —
-            // succeeds when the status has actually changed and reached (or passed) it
-            const deadline = transitionDeadline();
-            while (now() < deadline) {
-                if (cancelledRef.current) return false; // user left — stop silently
-                const fresh = await batchApi.getBatch(formData.id);
-                if (cancelledRef.current) return false;
-                const stepIdx = getStepIndex(getBatchStep(fresh.status));
-                if (fresh.status !== startingStatus && stepIdx >= targetIdx) {
-                    // Confirmed — sync local formData and the query cache
-                    setFormData((prev) => (prev ? { ...prev, status: fresh.status } : prev));
-                    queryClient.setQueryData(batchKeys.detail(formData.id), fresh);
-                    applyViewStep(null);
-                    return true;
-                }
-                await new Promise((resolve) => setTimeout(resolve, TRANSITION_POLL_MS));
-            }
-            // Timed out — the step didn't confirm; the batch stays on its previous status.
-            // The operation may still complete server-side — tell the user to refresh.
-            toast(
-                `${label} is taking longer than expected. It may still be running in the background — please refresh the page to see the latest status.`,
-                { icon: <FiInfo />, duration: 8000 }
+            // The response succeeded — move to the target step's view
+            setFormData((prev) => (prev ? { ...prev, status: STEP_STATUS[targetStep] } : prev));
+            // Sync the detail cache too — otherwise the next refetch reverts the status
+            queryClient.setQueryData<Batch>(
+                batchKeys.detail(formData.id),
+                (old) => (old ? { ...old, status: STEP_STATUS[targetStep] } : old)
             );
-            return false;
+            // Land on the live step's view, clearing any back-view override
+            applyViewStep(null);
+            return true;
         } catch (error) {
-            if (!cancelledRef.current) {
-                toast.error(getErrorMessage(error));
-            }
+            toast.error(getErrorMessage(error));
             return false;
         } finally {
             if (showOverlay) setTransitionLabel(null);
